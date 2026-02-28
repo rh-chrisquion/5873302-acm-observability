@@ -1,5 +1,0 @@
----
-- name: "Cluster Logout"
-  shell: "oc logout"
-  register: result
-  failed_when: ( result.rc not in [ 0, 1 ] )
