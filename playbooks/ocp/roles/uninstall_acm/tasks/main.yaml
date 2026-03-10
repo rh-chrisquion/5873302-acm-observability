@@ -149,16 +149,6 @@
   failed_when: false
   when: delete_target_apiservices is defined and delete_target_apiservices | length > 0
 
-- name: "Get all KlusterletAddonConfig resources"
-  kubernetes.core.k8s_info:
-    api_version: apiregistration.k8s.io/v1
-    kind: APIService
-    name: v1.admission.cluster.open-cluster-management.io
-    state: absent
-  ignore_errors: true
-  failed_when: false
-  when: cleanup_managed_clusters
-
 - name: "Delete all ClusterImageSet resources"
   kubernetes.core.k8s_info:
     api_version: apiregistration.k8s.io/v1
@@ -174,22 +164,11 @@
     api_version: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     state: absent
-    name: "{{ item.name }}"
+    name: "{{ item }}"
   loop: "{{ delete_target_clusterroles | default([]) }}"
   ignore_errors: true
   failed_when: false
   when: delete_target_clusterroles is defined and delete_target_clusterroles | length > 0
-
-- name: "Delete CRD artifacts"
-  kubernetes.core.k8s:
-    api_version: apiextensions.k8s.io/v1
-    kind: CustomResourceDefinition
-    name: "{{ item }}"
-    state: absent
-  loop: "{{ target_delete_crd_artifacts | default([]) }}"
-  ignore_errors: true
-  failed_when: false
-  when: target_delete_crd_artifacts is defined and target_delete_crd_artifacts | length > 0
 
 - name: "Delete ACM-related MutatingWebhookConfigurations"
   kubernetes.core.k8s:
@@ -202,16 +181,6 @@
   failed_when: false
   when: target_delete_mutating_webhook_configurations is defined and target_delete_mutating_webhook_configurations | length > 0
 
-- name: "Delete ACM-related ValidatingWebhookConfigurations"
-  kubernetes.core.k8s:
-    api_version: admissionregistration.k8s.io/v1
-    kind: ValidatingWebhookConfiguration
-    name: "{{ item }}"
-    state: absent
-  loop: "{{ target_delete_validating_webhook_configurations | default([]) }}"
-  ignore_errors: true
-  failed_when: false
-  when: target_delete_validating_webhook_configurations is defined and target_delete_validating_webhook_configurations | length > 0
 - name: "Delete all KlusterletAddonConfig resources"
   kubernetes.core.k8s:
     api_version: agent.open-cluster-management.io/v1
@@ -224,17 +193,6 @@
   failed_when: false
   when: cleanup_managed_clusters
 
-- name: "Delete all ACM ClusterRole resources"
-  kubernetes.core.k8s_info:
-    api_version: rbac.authorization.k8s.io/v1
-    kind: ClusterRole
-    state: absent
-    name: "{{ item.name }}"
-  loop: "{{ delete_target_clusterroles | default([]) }}"
-  ignore_errors: true
-  failed_when: false
-  when: delete_target_clusterroles is defined and delete_target_clusterroles | length > 0
-
 - name: "Delete CRD artifacts"
   kubernetes.core.k8s:
     api_version: apiextensions.k8s.io/v1
@@ -245,17 +203,6 @@
   ignore_errors: true
   failed_when: false
   when: target_delete_crd_artifacts is defined and target_delete_crd_artifacts | length > 0
-
-- name: "Delete ACM-related MutatingWebhookConfigurations"
-  kubernetes.core.k8s:
-    api_version: admissionregistration.k8s.io/v1
-    kind: MutatingWebhookConfiguration
-    name: "{{ item }}"
-    state: absent
-  loop: "{{ target_delete_mutating_webhook_configurations | default([]) }}"
-  ignore_errors: true
-  failed_when: false
-  when: target_delete_mutating_webhook_configurations is defined and target_delete_mutating_webhook_configurations | length > 0
 
 - name: "Delete ACM-related ValidatingWebhookConfigurations"
   kubernetes.core.k8s:
