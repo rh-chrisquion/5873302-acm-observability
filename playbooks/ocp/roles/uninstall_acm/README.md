@@ -1,8 +1,8 @@
 # Uninstall ACM
 
 `uninstall_acm` uninstalls Advanced Cluster Management (ACM) from an OpenShift cluster by:
-1. Deleting the MulticlusterHub custom resource
-2. Waiting for the MulticlusterHub to be fully removed
+1. Deleting the MultiClusterHub custom resource
+2. Waiting for the MultiClusterHub to be fully removed
 3. Deleting the ACM operator Subscription
 4. Optionally deleting the operator CSV
 5. Optionally cleaning up ManagedCluster and KlusterletAddonConfig resources
@@ -37,11 +37,11 @@
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `acm_multiclusterhub_name` | `multiclusterhub` | Name of the MulticlusterHub CR to delete |
-| `acm_multiclusterhub_namespace` | `open-cluster-management` | Namespace where MulticlusterHub is installed |
+| `acm_multiclusterhub_name` | `multiclusterhub` | Name of the MultiClusterHub CR to delete |
+| `acm_multiclusterhub_namespace` | `open-cluster-management` | Namespace where MultiClusterHub is installed |
 | `acm_operator_subscription_name` | `advanced-cluster-management` | Name of the ACM operator Subscription |
 | `acm_operator_subscription_namespace` | `open-cluster-management` | Namespace where the operator Subscription is installed |
-| `wait_for_multiclusterhub_deletion` | `true` | Wait for MulticlusterHub to be fully deleted |
+| `wait_for_multiclusterhub_deletion` | `true` | Wait for MultiClusterHub to be fully deleted |
 | `multiclusterhub_deletion_retries` | `60` | Maximum retries when waiting for deletion |
 | `multiclusterhub_deletion_delay` | `10` | Delay between retries (seconds) |
 | `delete_operator_csv` | `true` | Delete the operator CSV after uninstalling |

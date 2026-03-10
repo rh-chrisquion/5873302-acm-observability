@@ -1,8 +1,8 @@
 ---
-- name: "Check if MulticlusterHub exists"
+- name: "Check if MultiClusterHub exists"
   kubernetes.core.k8s_info:
     api_version: operator.open-cluster-management.io/v1
-    kind: MulticlusterHub
+    kind: MultiClusterHub
     name: "{{ acm_multiclusterhub_name }}"
     namespace: "{{ acm_multiclusterhub_namespace }}"
   register: multiclusterhub_info
@@ -41,26 +41,26 @@
     - wait_for_mco_deletion | bool
     - mco_cr_info.resources | length > 0
 
-- name: "Disable self-management on MulticlusterHub"
+- name: "Disable self-management on MultiClusterHub"
   kubernetes.core.k8s:
     state: present
     definition: "{{ multiclusterhub_info.resources[0] | combine({'spec': (multiclusterhub_info.resources[0].spec | default({}) | combine({'disableSelfManagement': true}))}, recursive=true) }}"
   when: multiclusterhub_info.resources | length > 0
 
-- name: "Delete MulticlusterHub custom resource"
+- name: "Delete MultiClusterHub custom resource"
   kubernetes.core.k8s:
     api_version: operator.open-cluster-management.io/v1
-    kind: MulticlusterHub
+    kind: MultiClusterHub
     name: "{{ acm_multiclusterhub_name }}"
     namespace: "{{ acm_multiclusterhub_namespace }}"
     state: absent
     delete_all: true
   when: multiclusterhub_info.resources | length > 0
 
-- name: "Wait for MulticlusterHub to be fully deleted"
+- name: "Wait for MultiClusterHub to be fully deleted"
   kubernetes.core.k8s_info:
     api_version: operator.open-cluster-management.io/v1
-    kind: MulticlusterHub
+    kind: MultiClusterHub
     name: "{{ acm_multiclusterhub_name }}"
     namespace: "{{ acm_multiclusterhub_namespace }}"
   register: multiclusterhub_deleted

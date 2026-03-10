@@ -1,8 +1,8 @@
 ---
-# ACM MulticlusterHub name (default is 'multiclusterhub')
+# ACM MultiClusterHub name (default is 'multiclusterhub')
 acm_multiclusterhub_name: "multiclusterhub"
 
-# ACM MulticlusterHub namespace (default is 'open-cluster-management')
+# ACM MultiClusterHub namespace (default is 'open-cluster-management')
 acm_multiclusterhub_namespace: "open-cluster-management"
 
 # ACM operator subscription name (default is 'advanced-cluster-management')
@@ -11,10 +11,10 @@ acm_operator_subscription_name: "advanced-cluster-management"
 # ACM operator subscription namespace (default is 'open-cluster-management')
 acm_operator_subscription_namespace: "open-cluster-management"
 
-# Wait for MulticlusterHub deletion to complete
+# Wait for MultiClusterHub deletion to complete
 wait_for_multiclusterhub_deletion: true
 
-# Maximum retries when waiting for MulticlusterHub deletion
+# Maximum retries when waiting for MultiClusterHub deletion
 multiclusterhub_deletion_retries: 60
 
 # Delay between retries (in seconds)
