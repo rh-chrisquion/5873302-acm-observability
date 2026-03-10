@@ -1,0 +1,41 @@
+---
+# ACM MulticlusterHub name (default is 'multiclusterhub')
+acm_multiclusterhub_name: "multiclusterhub"
+
+# ACM MulticlusterHub namespace (default is 'open-cluster-management')
+acm_multiclusterhub_namespace: "open-cluster-management"
+
+# ACM operator subscription name (default is 'advanced-cluster-management')
+acm_operator_subscription_name: "advanced-cluster-management"
+
+# ACM operator subscription namespace (default is 'open-cluster-management')
+acm_operator_subscription_namespace: "open-cluster-management"
+
+# Wait for MulticlusterHub deletion to complete
+wait_for_multiclusterhub_deletion: true
+
+# Maximum retries when waiting for MulticlusterHub deletion
+multiclusterhub_deletion_retries: 60
+
+# Delay between retries (in seconds)
+multiclusterhub_deletion_delay: 10
+
+# Delete the operator CSV after uninstalling
+delete_operator_csv: true
+
+# Delete the operator namespace after uninstalling
+delete_operator_namespace: false
+
+# Clean up ManagedCluster resources (set to false if you want to keep them)
+cleanup_managed_clusters: false
+
+# Clean up ClusterRole artifacts
+delete_target_clusterroles: ["open-cluster-management:cert-policy-controller", "open-cluster-management:cluster-manager-admin", "open-cluster-management:config-policy-controller", "open-cluster-management:endpoint-observability-operator", "open-cluster-management:governance-policy-framework", "open-cluster-management:governance-policy-framework-kube-rbac-proxy", "multiclusterengines.multicluster.openshift.io-v1-admin", "multiclusterengines.multicluster.openshift.io-v1-crdview", "multiclusterengines.multicluster.openshift.io-v1-edit", "multiclusterengines.multicluster.openshift.io-v1-view", "open-cluster-management:addons:application-manager", "open-cluster-management:admin-aggregate", "open-cluster-management:cert-policy-controller-hub", "open-cluster-management:cluster-manager-admin-aggregate", "open-cluster-management:config-policy-controller-hub", "open-cluster-management:edit-aggregate", "open-cluster-management:policy-framework-hub", "open-cluster-management:view-aggregate"]
+
+# Clean up ACM-related MutatingWebhookConfigurations
+target_delete_mutating_webhook_configurations: ["ocm-mutating-webhook", "managedclustermutators.admission.cluster.open-cluster-management.io", "multicluster-observability-operator"]
+
+# Clean up ACM-related ValidatingWebhookConfigurations
+target_delete_validating_webhook_configurations: ["channels.apps.open.cluster.management.webhook.validator", "application-webhook-validator", "multiclusterhub-operator-validating-webhook", "ocm-validating-webhook", "multicluster-observability-operator", "multiclusterengines.multicluster.openshift.io"]
+# Clean up CRD artifacts
+target_delete_crd_artifacts: ["open-cluster-management:cert-policy-controller", "open-cluster-management:cluster-manager-admin", "open-cluster-management:config-policy-controller", "open-cluster-management:endpoint-observability-operator", "open-cluster-management:governance-policy-framework", "open-cluster-management:governance-policy-framework-kube-rbac-proxy", "multiclusterengines.multicluster.openshift.io-v1-admin", "multiclusterengines.multicluster.openshift.io-v1-crdview", "multiclusterengines.multicluster.openshift.io-v1-edit", "multiclusterengines.multicluster.openshift.io-v1-view", "open-cluster-management:addons:application-manager", "open-cluster-management:admin-aggregate", "open-cluster-management:cert-policy-controller-hub", "open-cluster-management:cluster-manager-admin-aggregate", "open-cluster-management:config-policy-controller-hub", "open-cluster-management:edit-aggregate", "open-cluster-management:policy-framework-hub", "open-cluster-management:view-aggregate"]
