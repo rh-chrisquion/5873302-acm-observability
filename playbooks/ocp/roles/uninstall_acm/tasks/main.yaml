@@ -155,7 +155,7 @@
   when: delete_target_apiservices is defined and delete_target_apiservices | length > 0
 
 - name: "Delete all ClusterImageSet resources"
-  kubernetes.core.k8s_info:
+  kubernetes.core:
     api_version: apiregistration.k8s.io/v1
     kind: clusterimageset
     state: absent
@@ -165,7 +165,7 @@
   when: cleanup_managed_clusters
 
 - name: "Delete all ACM ClusterRole resources"
-  kubernetes.core.k8s_info:
+  kubernetes.core:
     api_version: rbac.authorization.k8s.io/v1
     kind: ClusterRole
     state: absent
