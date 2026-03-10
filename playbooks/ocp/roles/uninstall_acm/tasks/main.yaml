@@ -1,4 +1,12 @@
 ---
+- name: "Check if MulticlusterHub exists"
+  kubernetes.core.k8s_info:
+    api_version: operator.open-cluster-management.io/v1
+    kind: MulticlusterHub
+    name: "{{ acm_multiclusterhub_name }}"
+    namespace: "{{ acm_multiclusterhub_namespace }}"
+  register: multiclusterhub_info
+  ignore_errors: true
 
 - name: "Check if MultiClusterObservability custom resource exists"
   kubernetes.core.k8s_info:
@@ -32,15 +40,12 @@
   when:
     - wait_for_mco_deletion | bool
     - mco_cr_info.resources | length > 0
-    
-- name: "Check if MulticlusterHub exists"
-  kubernetes.core.k8s_info:
-    api_version: operator.open-cluster-management.io/v1
-    kind: MulticlusterHub
-    name: "{{ acm_multiclusterhub_name }}"
-    namespace: "{{ acm_multiclusterhub_namespace }}"
-  register: multiclusterhub_info
-  ignore_errors: true
+
+- name: "Disable self-management on MulticlusterHub"
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ multiclusterhub_info.resources[0] | combine({'spec': (multiclusterhub_info.resources[0].spec | default({}) | combine({'disableSelfManagement': true}))}, recursive=true) }}"
+  when: multiclusterhub_info.resources | length > 0
 
 - name: "Delete MulticlusterHub custom resource"
   kubernetes.core.k8s:
