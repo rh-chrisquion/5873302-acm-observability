@@ -1,0 +1,10 @@
+# Uninstall ACM
+- name: Uninstall ACM
+  hosts: localhost
+  vars_files:
+    - ../group_vars/all.yaml
+  gather_facts: false
+  environment:
+    KUBECONFIG: "/home/lab-user/.kube/config"
+  roles:
+    - uninstall_acm
