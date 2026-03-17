@@ -1,0 +1,3 @@
+---
+# Argo CD / OpenShift GitOps instance namespace to wipe
+wipe_argocd_namespace: "openshift-gitops"

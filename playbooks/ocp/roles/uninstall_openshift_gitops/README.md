@@ -17,8 +17,8 @@ All saved manifests are written under `gitops_backup_dir` (default: `gitops-back
 ## Uninstall order
 
 1. Create backup directory and export the manifests above.
-2. Delete the Argo CD custom resource (openshift-gitops instance).
-3. Wait for the Argo CD instance to be removed.
+2. Run the **wipe_argo** role (included automatically): deletes all Argo CD Applications, ApplicationSets, AppProjects, repository secrets (repos), and repo-creds secrets in the GitOps namespace.
+3. Delete the GitOpsService and Argo CD custom resource (openshift-gitops instance).
 4. Delete the OpenShift GitOps operator Subscription.
 5. Optionally delete the operator CSV and the GitOps namespace.
 
