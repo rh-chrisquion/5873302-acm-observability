@@ -3,13 +3,11 @@
   hosts: localhost
   vars_files:
     - ../group_vars/all.yaml
+    - secrets.yml
   connection: local
   gather_facts: false
-  environment:
-    KUBECONFIG: "{{ install_dir }}/{{ ocp_cluster.name }}/auth/kubeconfig"
-
+  vars: 
+    ansible_python_interpreter: /Users/chrisquion/5873302-acm-observability/ansible-k8s-venv/.ansible-k8s/bin/python3
   roles:
+    - role: configure_argo
     - role: apps_install_acm
-    - role: apps_install_odf
-    - role: apps_install_coo
-    - role: apps_install_mco

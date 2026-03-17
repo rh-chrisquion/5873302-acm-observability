@@ -1,0 +1,4 @@
+{# Argo CD RBAC overlay: assign listed users/groups to role:admin (full control) #}
+{% for viewer in argocd_rbac_viewer %}
+g, {{ viewer }}, role:admin
+{% endfor %}

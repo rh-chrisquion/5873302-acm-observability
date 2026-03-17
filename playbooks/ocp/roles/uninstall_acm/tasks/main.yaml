@@ -118,7 +118,6 @@
     namespace: "{{ acm_operator_subscription_namespace }}"
     state: absent
   when:
-    - delete_operator_csv
     - acm_current_csv is defined
 
 - name: "Get all ManagedCluster resources"
