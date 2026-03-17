@@ -38,7 +38,12 @@
 
 - name: Build ArgoCD CR spec with updated RBAC only (preserve rest of spec and rbac fields)
   ansible.builtin.set_fact:
-    argocd_cr_spec: "{{ argocd_cr.resources[0].spec | combine({ rbac: (argocd_cr.resources[0].spec.rbac | default({}) | combine({ policy: argocd_rbac_policy_merged })) }) }}"
+    argocd_cr_spec: "{{ argocd_cr.resources[0].spec | combine(spec_rbac_merged) }}"
+  vars:
+    rbac_with_policy:
+      policy: "{{ argocd_rbac_policy_merged }}"
+    spec_rbac_merged:
+      rbac: "{{ argocd_cr.resources[0].spec.rbac | default({}) | combine(rbac_with_policy) }}"
   when:
     - argocd_rbac_viewer | length > 0
     - argocd_rbac_policy_merged is defined

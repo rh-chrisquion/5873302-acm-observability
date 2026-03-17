@@ -3,7 +3,13 @@
 repo_name: gitops-install-acm
 
 # GitLab HTTPS (use personal access token via vault_repo_password in secrets.yml)
-repo_url: "https://gitlab.com/SkylarScaling/gitops-install-acm.git"
+repo_url: "https://gitlab.com/cquion/testing.git"
+
+# Repo URL used by the ACM Application (apps_install_acm); must be in sourceRepos for project 'acm'
+acm_repo_url: "https://gitlab.com/cquion/testing.git"
+
+# All repo URLs permitted in the AppProject (must include any repo used by Applications in this project)
+project_source_repos: "{{ [repo_url, acm_repo_url] | unique | list }}"
 
 # Username for GitLab PAT auth (often "git" or "oauth2"; set in secrets.yml as vault_repo_username to override)
 repo_username: "git"
@@ -16,4 +22,4 @@ app_project_description: "AppProject for Advanced Cluster Management"
 # Argo CD RBAC: user(s) or group(s) to grant role:admin (full control).
 # Set to the current user (e.g. from oc whoami) or an SSO group. Leave empty to skip.
 argocd_namespace: openshift-gitops
-argocd_rbac_viewer: []  # e.g. [ "myuser" ] or [ "my-org:my-group" ]
+argocd_rbac_viewer: ["system:authenticated"]  # e.g. [ "myuser" ] or [ "my-org:my-group" ]

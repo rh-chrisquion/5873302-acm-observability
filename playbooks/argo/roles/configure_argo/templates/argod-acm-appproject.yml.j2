@@ -8,10 +8,11 @@ metadata:
 spec:
   description: "{{ app_project_description }}"
   
-  # 1. Where are manifests allowed to come from?
+  # 1. Where are manifests allowed to come from? (must include every repo used by Applications in this project)
   sourceRepos:
-    - "{{ repo_url }}"
-    # (Optional: Use '*' to allow any repository to be used in this project)
+{% for repo in project_source_repos %}
+    - "{{ repo }}"
+{% endfor %}
 
   # 2. Where are apps allowed to deploy to? (Local cluster, all namespaces)
   destinations:
