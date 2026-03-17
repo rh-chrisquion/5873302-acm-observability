@@ -1,0 +1,48 @@
+apiVersion: v1
+data:
+    policy.csv: 'g, system:authenticated, role:admin
+
+        '
+    policy.default: ''
+    scopes: '[groups]'
+kind: ConfigMap
+metadata:
+    creationTimestamp: '2026-03-16T21:14:10Z'
+    labels:
+        app.kubernetes.io/managed-by: openshift-gitops
+        app.kubernetes.io/name: argocd-rbac-cm
+        app.kubernetes.io/part-of: argocd
+        operator.argoproj.io/tracked-by: argocd
+    managedFields:
+    -   apiVersion: v1
+        fieldsType: FieldsV1
+        fieldsV1:
+            f:data:
+                .: {}
+                f:policy.csv: {}
+                f:policy.default: {}
+                f:scopes: {}
+            f:metadata:
+                f:labels:
+                    .: {}
+                    f:app.kubernetes.io/managed-by: {}
+                    f:app.kubernetes.io/name: {}
+                    f:app.kubernetes.io/part-of: {}
+                    f:operator.argoproj.io/tracked-by: {}
+                f:ownerReferences:
+                    .: {}
+                    k:{"uid":"8494fea9-9d1e-4a2a-9b57-dab97422589e"}: {}
+        manager: manager
+        operation: Update
+        time: '2026-03-17T03:21:05Z'
+    name: argocd-rbac-cm
+    namespace: openshift-gitops
+    ownerReferences:
+    -   apiVersion: argoproj.io/v1beta1
+        blockOwnerDeletion: true
+        controller: true
+        kind: ArgoCD
+        name: openshift-gitops
+        uid: 8494fea9-9d1e-4a2a-9b57-dab97422589e
+    resourceVersion: '463759'
+    uid: e348711a-e6fd-4837-b387-c6ba3b8f7946

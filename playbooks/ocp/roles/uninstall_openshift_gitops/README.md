@@ -105,7 +105,12 @@ After reinstalling OpenShift GitOps:
    Before applying, remove server-managed fields from the saved YAML if you see conflicts: `metadata.resourceVersion`, `metadata.uid`, `metadata.creationTimestamp`, `metadata.generation`, `metadata.managedFields`, and the `status` section.
 4. Restore repo and cluster secrets so Argo CD can connect to Git and clusters again.
 
+## Clean reinstall
+
+With `delete_operator_csv: true` and `delete_gitops_namespace: true`, the role removes the Argo CD instance, Subscription, CSV, and GitOps namespace so that OpenShift GitOps can be reinstalled (e.g. via the `install_openshift_gitops` role or `install-argo.yaml`) without conflicts. The playbook `uninstall-openshift-gitops.yaml` runs the role with these options and then verifies that the ArgoCD CR, Subscription, and (when applicable) namespace are gone.
+
 ## Notes
 
 - If the GitOps namespace does not exist, backup tasks are skipped and only operator Subscription/CSV removal runs if present.
 - Saved secrets contain credentials; restrict access to `gitops_backup_dir` and do not commit it to version control.
+- If the GitOps namespace sticks in `Terminating` due to finalizers, remove blocking finalizers or wait for the operator to release them; the role does not modify finalizers.

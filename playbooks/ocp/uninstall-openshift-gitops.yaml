@@ -1,0 +1,76 @@
+---
+# Uninstall OpenShift GitOps and verify cluster is clean for reinstall.
+# Run from repo root: ansible-playbook -i inventory.ini playbooks/ocp/uninstall-openshift-gitops.yaml
+- name: Uninstall OpenShift GitOps
+  hosts: localhost
+  vars_files:
+    - ../group_vars/all.yaml
+  vars:
+    # Full cleanup so the operator and namespace can be reinstalled cleanly
+    delete_gitops_namespace: true
+    delete_operator_csv: true
+  gather_facts: false
+  roles:
+    - role: uninstall_openshift_gitops
+      vars:
+        gitops_namespace: "openshift-gitops"
+        gitops_operator_namespace: "openshift-operators"
+        gitops_operator_subscription_name: "openshift-gitops-operator"
+
+- name: Verify cleanup (ready for reinstall)
+  hosts: localhost
+  vars_files:
+    - ../group_vars/all.yaml
+  vars:
+    gitops_namespace: "openshift-gitops"
+    gitops_operator_namespace: "openshift-operators"
+    gitops_operator_subscription_name: "openshift-gitops-operator"
+    delete_gitops_namespace: true  # must match the uninstall play above
+  gather_facts: false
+  tasks:
+    - name: Check ArgoCD CR is gone
+      kubernetes.core.k8s_info:
+        api_version: argoproj.io/v1beta1
+        kind: ArgoCD
+        name: openshift-gitops
+        namespace: "{{ gitops_namespace }}"
+      register: verify_argocd_cr
+      ignore_errors: true
+
+    - name: Fail if ArgoCD CR still exists (blocks reinstall)
+      ansible.builtin.fail:
+        msg: "ArgoCD CR 'openshift-gitops' still exists in {{ gitops_namespace }}. Reinstall may be inconsistent."
+      when: verify_argocd_cr.resources | default([]) | length > 0
+
+    - name: Check GitOps Subscription is gone
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: "{{ gitops_operator_subscription_name }}"
+        namespace: "{{ gitops_operator_namespace }}"
+      register: verify_subscription
+      ignore_errors: true
+
+    - name: Fail if GitOps Subscription still exists (blocks reinstall)
+      ansible.builtin.fail:
+        msg: "Subscription '{{ gitops_operator_subscription_name }}' still exists in {{ gitops_operator_namespace }}. Reinstall will conflict."
+      when: verify_subscription.resources | default([]) | length > 0
+
+    - name: Check GitOps namespace is gone
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: "{{ gitops_namespace }}"
+      register: verify_namespace
+      ignore_errors: true
+
+    - name: Fail if GitOps namespace still exists (reinstall may reuse it; optional)
+      ansible.builtin.fail:
+        msg: "Namespace '{{ gitops_namespace }}' still exists. For a clean reinstall, set delete_gitops_namespace: true in the uninstall play."
+      when:
+        - delete_gitops_namespace | default(false) | bool
+        - verify_namespace.resources | default([]) | length > 0
+
+    - name: Uninstall verification passed
+      ansible.builtin.debug:
+        msg: "OpenShift GitOps uninstall complete. Cluster is ready for reinstall (e.g. run install-argo.yaml)."

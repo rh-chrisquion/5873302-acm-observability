@@ -8,6 +8,9 @@ gitops_operator_namespace: "openshift-operators"
 # OpenShift GitOps operator subscription name
 gitops_operator_subscription_name: "openshift-gitops-operator"
 
+# GitOpsService instance to delete (doc: oc delete gitopsservice cluster -n openshift-gitops)
+gitops_service_name: "cluster"
+
 # Directory where to save Argo RBAC and repo connection manifests (created if missing)
 gitops_backup_dir: "{{ playbook_dir | default('.') }}/gitops-backup"
 

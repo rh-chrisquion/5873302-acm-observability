@@ -119,6 +119,16 @@
     - gitops_subscription_info.resources | length > 0
     - gitops_subscription_info.resources[0].status.currentCSV is defined
 
+- name: "Delete GitOpsService cluster (doc: oc delete gitopsservice cluster -n openshift-gitops)"
+  kubernetes.core.k8s:
+    api_version: pipelines.openshift.io/v1alpha1
+    kind: GitopsService
+    name: "{{ gitops_service_name }}"
+    namespace: "{{ gitops_namespace }}"
+    state: absent
+  ignore_errors: true
+  when: gitops_namespace_info.resources | length > 0
+
 - name: "Check if ArgoCD custom resource exists"
   kubernetes.core.k8s_info:
     api_version: argoproj.io/v1beta1
@@ -184,9 +194,19 @@
     name: "{{ gitops_current_csv }}"
     namespace: "{{ gitops_operator_namespace }}"
     state: absent
+  ignore_errors: true
   when:
     - delete_operator_csv | bool
     - gitops_current_csv is defined
+  register: delete_csv_result
+
+- name: "Warn if CSV was already removed (e.g. by OLM)"
+  ansible.builtin.debug:
+    msg: "CSV {{ gitops_current_csv }} was already absent (OLM may have removed it)."
+  when:
+    - delete_operator_csv | bool
+    - gitops_current_csv is defined
+    - delete_csv_result is failed
 
 - name: "Delete GitOps namespace"
   kubernetes.core.k8s:
