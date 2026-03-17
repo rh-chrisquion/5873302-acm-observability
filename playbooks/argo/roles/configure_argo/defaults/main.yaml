@@ -2,8 +2,13 @@
 # defaults/main.yaml
 repo_name: gitops-install-acm
 repo_url: git@github.com:SkylarScaling/gitops-install-acm.git
-argocd_project: default
+argocd_project: acm
 
 # defaults/main.yaml
 app_project_name: acm
 app_project_description: "AppProject for Advanced Cluster Management"
+
+# Argo CD RBAC: user(s) or group(s) to grant role:admin (full control).
+# Set to the current user (e.g. from oc whoami) or an SSO group. Leave empty to skip.
+argocd_namespace: openshift-gitops
+argocd_rbac_viewer: []  # e.g. [ "myuser" ] or [ "my-org:my-group" ]

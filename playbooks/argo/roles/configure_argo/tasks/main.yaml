@@ -10,3 +10,65 @@
   kubernetes.core.k8s:
     state: present
     template: argocd-repo-secret.yaml.j2
+
+# Ensure the configured user(s)/group(s) have Argo CD admin (full control).
+# Apply RBAC via the ArgoCD CR so the operator reconciles it; do not patch argocd-rbac-cm directly (it is operator-managed).
+- name: Get existing ArgoCD instance (CR)
+  kubernetes.core.k8s_info:
+    api_version: argoproj.io/v1beta1
+    kind: ArgoCD
+    name: openshift-gitops
+    namespace: "{{ argocd_namespace }}"
+  register: argocd_cr
+  when: argocd_rbac_viewer | length > 0
+
+- name: Set merged RBAC policy for ArgoCD CR (append admin assignments to existing policy)
+  ansible.builtin.set_fact:
+    argocd_rbac_policy_merged: "{{ (argocd_cr.resources[0].spec.rbac.policy | default('')) | trim + '\n' + (lookup('template', 'argocd-rbac-viewer-policy.csv.j2') | trim) }}"
+  when:
+    - argocd_rbac_viewer | length > 0
+    - argocd_cr.resources | default([]) | length > 0
+
+- name: Set RBAC policy for ArgoCD CR when no existing policy
+  ansible.builtin.set_fact:
+    argocd_rbac_policy_merged: "{{ lookup('template', 'argocd-rbac-viewer-policy.csv.j2') | trim }}"
+  when:
+    - argocd_rbac_viewer | length > 0
+    - argocd_cr.resources | default([]) | length == 0
+
+- name: Build ArgoCD CR spec with updated RBAC only (preserve rest of spec and rbac fields)
+  ansible.builtin.set_fact:
+    argocd_cr_spec: "{{ argocd_cr.resources[0].spec | combine({ rbac: (argocd_cr.resources[0].spec.rbac | default({}) | combine({ policy: argocd_rbac_policy_merged })) }) }}"
+  when:
+    - argocd_rbac_viewer | length > 0
+    - argocd_rbac_policy_merged is defined
+    - argocd_cr.resources | default([]) | length > 0
+
+- name: Patch ArgoCD CR with RBAC admin role assignment (operator will reconcile to argocd-rbac-cm)
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: argoproj.io/v1beta1
+      kind: ArgoCD
+      metadata: "{{ argocd_cr.resources[0].metadata }}"
+      spec: "{{ argocd_cr_spec }}"
+  when:
+    - argocd_rbac_viewer | length > 0
+    - argocd_cr_spec is defined
+
+- name: Patch ArgoCD CR with RBAC when CR existed with no prior rbac (create new rbac block)
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: argoproj.io/v1beta1
+      kind: ArgoCD
+      metadata:
+        name: openshift-gitops
+        namespace: "{{ argocd_namespace }}"
+      spec:
+        rbac:
+          policy: "{{ argocd_rbac_policy_merged }}"
+  when:
+    - argocd_rbac_viewer | length > 0
+    - argocd_rbac_policy_merged is defined
+    - argocd_cr.resources | default([]) | length == 0
