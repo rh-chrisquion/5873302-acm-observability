@@ -103,6 +103,13 @@
     - cluster_secrets_info.resources is defined
     - cluster_secrets_info.resources | length > 0
 
+- name: "Wipe all Argo CD Applications, ApplicationSets, AppProjects, repos, and repo-creds"
+  ansible.builtin.include_role:
+    name: wipe_argo
+  vars:
+    wipe_argocd_namespace: "{{ gitops_namespace }}"
+  when: gitops_namespace_info.resources | length > 0
+
 - name: "Check if OpenShift GitOps operator Subscription exists"
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
@@ -150,20 +157,15 @@
     - gitops_namespace_info.resources | length > 0
     - argocd_cr_info.resources | length > 0
 
-- name: "Wait for ArgoCD CR to be deleted"
-  kubernetes.core.k8s_info:
-    api_version: argoproj.io/v1beta1
-    kind: ArgoCD
-    name: openshift-gitops
-    namespace: "{{ gitops_namespace }}"
-  register: argocd_cr_deleted
-  until: argocd_cr_deleted.resources | length == 0
-  retries: 30
-  delay: 10
-  failed_when: false
-  when:
-    - gitops_namespace_info.resources | length > 0
-    - argocd_cr_info.resources | length > 0
+- name: "Delete Argo CD console plugin (ConsolePlugin) so it is no longer available"
+  kubernetes.core.k8s:
+    api_version: console.openshift.io/v1
+    kind: ConsolePlugin
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ gitops_console_plugin_names | default([]) }}"
+  ignore_errors: true
+  when: gitops_console_plugin_names | default([]) | length > 0
 
 - name: "Delete OpenShift GitOps operator Subscription"
   kubernetes.core.k8s:

@@ -1,0 +1,109 @@
+---
+# Wipe all Argo CD Applications, ApplicationSets, AppProjects, and repo/repo-creds in the GitOps namespace.
+# Use standalone or before uninstall_openshift_gitops. Namespace must exist.
+- name: "Check if GitOps namespace exists (wipe_argo)"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ wipe_argocd_namespace }}"
+  register: wipe_namespace_info
+  ignore_errors: true
+
+- name: "List all Argo CD Applications in GitOps namespace"
+  kubernetes.core.k8s_info:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    namespace: "{{ wipe_argocd_namespace }}"
+  register: argocd_applications
+  ignore_errors: true
+  when: wipe_namespace_info.resources | default([]) | length > 0
+
+- name: "Delete all Argo CD Applications"
+  kubernetes.core.k8s:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ wipe_argocd_namespace }}"
+    state: absent
+  loop: "{{ argocd_applications.resources | default([]) }}"
+  when: wipe_namespace_info.resources | default([]) | length > 0
+
+- name: "List all Argo CD ApplicationSets in GitOps namespace"
+  kubernetes.core.k8s_info:
+    api_version: argoproj.io/v1alpha1
+    kind: ApplicationSet
+    namespace: "{{ wipe_argocd_namespace }}"
+  register: argocd_applicationsets
+  ignore_errors: true
+  when: wipe_namespace_info.resources | default([]) | length > 0
+
+- name: "Delete all Argo CD ApplicationSets"
+  kubernetes.core.k8s:
+    api_version: argoproj.io/v1alpha1
+    kind: ApplicationSet
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ wipe_argocd_namespace }}"
+    state: absent
+  loop: "{{ argocd_applicationsets.resources | default([]) }}"
+  when: wipe_namespace_info.resources | default([]) | length > 0
+
+- name: "List all Argo CD AppProjects in GitOps namespace"
+  kubernetes.core.k8s_info:
+    api_version: argoproj.io/v1alpha1
+    kind: AppProject
+    namespace: "{{ wipe_argocd_namespace }}"
+  register: argocd_appprojects
+  ignore_errors: true
+  when: wipe_namespace_info.resources | default([]) | length > 0
+
+- name: "Delete all Argo CD AppProjects"
+  kubernetes.core.k8s:
+    api_version: argoproj.io/v1alpha1
+    kind: AppProject
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ wipe_argocd_namespace }}"
+    state: absent
+  loop: "{{ argocd_appprojects.resources | default([]) }}"
+  when: wipe_namespace_info.resources | default([]) | length > 0
+
+- name: "List all Argo CD repository secrets (repos) in GitOps namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ wipe_argocd_namespace }}"
+    label_selectors:
+      - "argocd.argoproj.io/secret-type=repository"
+  register: argocd_repo_secrets
+  ignore_errors: true
+  when: wipe_namespace_info.resources | default([]) | length > 0
+
+- name: "Delete all Argo CD repository secrets (repos)"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Secret
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ wipe_argocd_namespace }}"
+    state: absent
+  loop: "{{ argocd_repo_secrets.resources | default([]) }}"
+  when: wipe_namespace_info.resources | default([]) | length > 0
+
+- name: "List all Argo CD repo-creds secrets in GitOps namespace"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: "{{ wipe_argocd_namespace }}"
+    label_selectors:
+      - "argocd.argoproj.io/secret-type=repo-creds"
+  register: argocd_repocreds_secrets
+  ignore_errors: true
+  when: wipe_namespace_info.resources | default([]) | length > 0
+
+- name: "Delete all Argo CD repo-creds secrets"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Secret
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ wipe_argocd_namespace }}"
+    state: absent
+  loop: "{{ argocd_repocreds_secrets.resources | default([]) }}"
+  when: wipe_namespace_info.resources | default([]) | length > 0

@@ -28,7 +28,7 @@ vault_repo_password: "glpat-xxxxxxxxxxxxxxxxxxxx"
 | `repo_username` | `git` | Default username for repo auth (override with `vault_repo_username`). |
 | `argocd_project` | `acm` | AppProject to associate with the repo. |
 | `app_project_name` | `acm` | AppProject name. |
-| `argocd_rbac_viewer` | `[]` | List of users/groups to grant Argo CD admin. |
+| `argocd_rbac_admins` | `[]` | List of users/groups to grant Argo CD admin. |
 | `argocd_namespace` | `openshift-gitops` | Argo CD namespace. |
 
 Vault (in `secrets.yml`): `vault_repo_password`, optional `vault_repo_username`.

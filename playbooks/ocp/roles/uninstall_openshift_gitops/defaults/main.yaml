@@ -11,6 +11,10 @@ gitops_operator_subscription_name: "openshift-gitops-operator"
 # GitOpsService instance to delete (doc: oc delete gitopsservice cluster -n openshift-gitops)
 gitops_service_name: "cluster"
 
+# ConsolePlugin name(s) to delete so the Argo CD console plugin is no longer available (cluster-scoped)
+gitops_console_plugin_names:
+  - "gitops"
+
 # Directory where to save Argo RBAC and repo connection manifests (created if missing)
 gitops_backup_dir: "{{ playbook_dir | default('.') }}/gitops-backup"
 
