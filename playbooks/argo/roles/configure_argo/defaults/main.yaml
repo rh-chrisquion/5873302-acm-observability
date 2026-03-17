@@ -1,7 +1,10 @@
 ---
 # defaults/main.yaml
 repo_name: gitops-install-acm
-repo_url: git@github.com:SkylarScaling/gitops-install-acm.git
+# GitLab HTTPS (use personal access token via vault_repo_password in secrets.yml)
+repo_url: "https://gitlab.com/SkylarScaling/gitops-install-acm.git"
+# Username for GitLab PAT auth (often "git" or "oauth2"; set in secrets.yml as vault_repo_username to override)
+repo_username: "git"
 argocd_project: acm
 
 # defaults/main.yaml

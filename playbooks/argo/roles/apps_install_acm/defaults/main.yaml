@@ -5,8 +5,8 @@ acm_argocd_namespace: "openshift-gitops"
 acm_argocd_project: "acm"
 acm_argocd_sync_policy: "Automatic"
 
-# Git Repository Configuration
-acm_git_repo_url: "git@github.com:SkylarScaling/gitops-install-acm.git"
+# Git Repository Configuration (HTTPS for GitLab PAT auth; must match repo_url in configure_argo)
+acm_git_repo_url: "https://gitlab.com/SkylarScaling/gitops-install-acm.git"
 acm_git_repo_path: "acm"
 acm_git_repo_revision: "main"
 
