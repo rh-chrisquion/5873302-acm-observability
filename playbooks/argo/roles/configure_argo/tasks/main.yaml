@@ -1,0 +1,12 @@
+---
+# tasks/main.yaml
+- name: Generate and apply the ArgoCD AppProject
+  kubernetes.core.k8s:
+    state: present
+    template: argod-acm-appproject.yml.j2
+
+# tasks/main.yaml
+- name: Generate and apply the ArgoCD Repository Secret
+  kubernetes.core.k8s:
+    state: present
+    template: argocd-repo-secret.yaml.j2

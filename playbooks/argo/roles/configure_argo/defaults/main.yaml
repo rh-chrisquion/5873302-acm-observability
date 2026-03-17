@@ -1,0 +1,9 @@
+---
+# defaults/main.yaml
+repo_name: gitops-install-acm
+repo_url: git@github.com:SkylarScaling/gitops-install-acm.git
+argocd_project: default
+
+# defaults/main.yaml
+app_project_name: acm
+app_project_description: "AppProject for Advanced Cluster Management"

@@ -2,11 +2,11 @@
 # ArgoCD Application Configuration
 acm_argocd_app_name: "acm-hub"
 acm_argocd_namespace: "openshift-gitops"
-acm_argocd_project: "default"
+acm_argocd_project: "acm"
 acm_argocd_sync_policy: "Automatic"
 
 # Git Repository Configuration
-acm_git_repo_url: "https://github.com/SkylarScaling/gitops-install-acm.git" # TODO: Update this to the actual repository housing the ACM manifests
+acm_git_repo_url: "git@github.com:SkylarScaling/gitops-install-acm.git"
 acm_git_repo_path: "acm"
 acm_git_repo_revision: "main"
 

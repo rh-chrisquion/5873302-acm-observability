@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: "{{ app_project_name }}"
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/instance: openshift-gitops
+spec:
+  description: "{{ app_project_description }}"
+  
+  # 1. Where are manifests allowed to come from?
+  sourceRepos:
+    - "{{ repo_url }}"
+    # (Optional: Use '*' to allow any repository to be used in this project)
+
+  # 2. Where are apps allowed to deploy to? (Local cluster, all namespaces)
+  destinations:
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+
+  # 3. Are apps allowed to create cluster-scoped resources? 
+  # (Crucial for ACM and Operators)
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'

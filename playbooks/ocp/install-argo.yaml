@@ -3,8 +3,10 @@
   hosts: localhost
   vars_files:
     - ../group_vars/all.yaml
-  gather_facts: false
+  vars: 
+    ansible_python_interpreter: /Users/chrisquion/5873302-acm-observability/ansible-k8s-venv/.ansible-k8s/bin/python3
   environment:
-    KUBECONFIG: "{{ install_dir }}/{{ ocp_cluster.name }}/auth/kubeconfig"
+    K8S_AUTH_API_KEY: "sha256~tQtt-KpnfH2V1t0ZayDZnmYZ6KkuswhGSoPhnnwj8Hc"
+  gather_facts: false
   roles:
     - install_openshift_gitops
