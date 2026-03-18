@@ -1,0 +1,12 @@
+---
+# Wipe all Argo CD Applications, ApplicationSets, AppProjects, repos, and repo-creds.
+# Does not uninstall the GitOps operator or instance.
+# Run from repo root: ansible-playbook -i inventory.ini playbooks/ocp/wipe-argo.yaml
+# Override namespace: ansible-playbook -i inventory.ini playbooks/ocp/wipe-argo.yaml -e wipe_argocd_namespace=my-gitops
+- name: Wipe Argo CD apps and repo config
+  hosts: localhost
+  vars_files:
+    - ../group_vars/all.yaml
+  gather_facts: false
+  roles:
+    - wipe_argo

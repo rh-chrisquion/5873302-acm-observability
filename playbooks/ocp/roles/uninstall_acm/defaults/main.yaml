@@ -1,4 +1,9 @@
 ---
+# Uninstall depth:
+#   full — delete MultiClusterObservability (if present), MultiClusterHub, then operator/MCE/webhooks/namespace per other vars (default).
+#   multiclusterhub_cr_only — remove only the MultiClusterHub CR (and disable self-management if needed); leaves ACM operator Subscription/CSV and hub namespace for reinstall with the same settings.
+acm_uninstall_mode: full
+
 # ACM MultiClusterHub name (default is 'multiclusterhub')
 acm_multiclusterhub_name: "multiclusterhub"
 
@@ -10,6 +15,25 @@ acm_operator_subscription_name: "advanced-cluster-management"
 
 # ACM operator subscription namespace (default is 'open-cluster-management')
 acm_operator_subscription_namespace: "open-cluster-management"
+
+# Multicluster Engine operator (Subscription + CSV) — default install namespace
+mce_operator_subscription_name: "multicluster-engine"
+mce_operator_subscription_namespace: "multicluster-engine"
+# Remove MCE Subscription and CSV after ACM uninstall (set false if MCE not installed separately)
+delete_mce_operator: true
+delete_mce_operator_csv: true
+# Delete MultiClusterEngine CR first (stops addons e.g. cluster-proxy before removing operator)
+delete_multiclusterengine_cr: true
+# After MCE operator removal, empty multicluster-engine namespace and delete it (stops leftover pods)
+preclean_mce_namespace_before_delete: true
+mce_namespace_preclean_passes: 3
+delete_mce_namespace: true
+
+# Remove ACM/MCE dynamic console plugins (ConsolePlugin CRs + Console operator plugin list)
+delete_acm_console_plugins: true
+acm_console_plugin_names:
+  - "acm"
+  - "mce"
 
 # Wait for MultiClusterHub deletion to complete
 wait_for_multiclusterhub_deletion: true
@@ -39,10 +63,14 @@ mco_deletion_delay: 10
 delete_operator_csv: true
 
 # Delete the operator namespace after uninstalling
-delete_operator_namespace: false
+delete_operator_namespace: true
 
-# Clean up ManagedCluster resources (set to false if you want to keep them)
-cleanup_managed_clusters: false
+# Before deleting the namespace, delete all remaining namespaced resources (multiple passes; requires oc)
+preclean_ocm_namespace_before_delete: true
+ocm_namespace_preclean_passes: 3
+
+# Detach managed clusters: delete KlusterletAddonConfig then ManagedCluster (tasks/main.yaml)
+cleanup_managed_clusters: true
 
 # Clean up ACM-related API services
 delete_target_apiservices: ["v1.admission.cluster.open-cluster-management.io", "v1.admission.work.open-cluster-management.io"]

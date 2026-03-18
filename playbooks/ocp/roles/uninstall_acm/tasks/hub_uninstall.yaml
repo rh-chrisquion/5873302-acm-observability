@@ -1,0 +1,56 @@
+---
+# Full hub uninstall: MCO + detach (full mode only), MultiClusterHub, then operator/MCE/webhooks/namespace
+
+- name: "Remove MCO and detach managed clusters before hub teardown"
+  ansible.builtin.include_tasks: main.yaml
+  when: acm_uninstall_mode | default('full') == 'full'
+
+- name: "Check if MultiClusterHub exists"
+  kubernetes.core.k8s_info:
+    api_version: operator.open-cluster-management.io/v1
+    kind: MultiClusterHub
+    name: "{{ acm_multiclusterhub_name }}"
+    namespace: "{{ acm_multiclusterhub_namespace }}"
+  register: multiclusterhub_info
+  ignore_errors: true
+
+- name: "Disable self-management on MultiClusterHub"
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ multiclusterhub_info.resources[0] | combine({'spec': (multiclusterhub_info.resources[0].spec | default({}) | combine({'disableSelfManagement': true}))}, recursive=true) }}"
+  when: multiclusterhub_info.resources | length > 0
+
+- name: "Delete MultiClusterHub custom resource"
+  kubernetes.core.k8s:
+    api_version: operator.open-cluster-management.io/v1
+    kind: MultiClusterHub
+    name: "{{ acm_multiclusterhub_name }}"
+    namespace: "{{ acm_multiclusterhub_namespace }}"
+    state: absent
+    delete_all: true
+  when: multiclusterhub_info.resources | length > 0
+
+- name: "MultiClusterHub CR-only uninstall complete (operator remains)"
+  ansible.builtin.debug:
+    msg: >-
+      MultiClusterHub custom resource removed. ACM operator Subscription/CSV and hub namespace are unchanged.
+      Recreate MultiClusterHub when ready with the same settings. (acm_uninstall_mode=multiclusterhub_cr_only)
+  when:
+    - acm_uninstall_mode | default('full') == 'multiclusterhub_cr_only'
+    - multiclusterhub_info.resources | length > 0
+
+- name: "MultiClusterHub CR-only mode — no MultiClusterHub CR found"
+  ansible.builtin.debug:
+    msg: >-
+      No MultiClusterHub CR present; nothing removed. Operator unchanged. (acm_uninstall_mode=multiclusterhub_cr_only)
+  when:
+    - acm_uninstall_mode | default('full') == 'multiclusterhub_cr_only'
+    - multiclusterhub_info.resources | length == 0
+
+- name: End play after MultiClusterHub CR-only uninstall
+  ansible.builtin.meta: end_play
+  when: acm_uninstall_mode | default('full') == 'multiclusterhub_cr_only'
+
+- name: Import full ACM operator teardown tasks
+  ansible.builtin.import_tasks: full_uninstall.yaml
+  when: acm_uninstall_mode | default('full') == 'full'

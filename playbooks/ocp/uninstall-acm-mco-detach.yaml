@@ -1,0 +1,11 @@
+# MCO removal + managed cluster detach only (no MultiClusterHub / operator uninstall)
+- name: ACM MCO and managed cluster detach
+  hosts: localhost
+  vars_files:
+    - ../group_vars/all.yaml
+  gather_facts: false
+  tasks:
+    - name: Run uninstall_acm main tasks
+      ansible.builtin.include_role:
+        name: uninstall_acm
+        tasks_from: main.yaml
