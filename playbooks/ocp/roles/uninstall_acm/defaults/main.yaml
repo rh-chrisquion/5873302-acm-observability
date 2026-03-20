@@ -24,6 +24,9 @@ delete_mce_operator: true
 delete_mce_operator_csv: true
 # Delete MultiClusterEngine CR first (stops addons e.g. cluster-proxy before removing operator)
 delete_multiclusterengine_cr: true
+# Wait loop after MultiClusterEngine CR delete (full_uninstall.yaml)
+mce_cr_deletion_retries: 60
+mce_cr_deletion_delay: 10
 # After MCE operator removal, empty multicluster-engine namespace and delete it (stops leftover pods)
 preclean_mce_namespace_before_delete: true
 mce_namespace_preclean_passes: 3
