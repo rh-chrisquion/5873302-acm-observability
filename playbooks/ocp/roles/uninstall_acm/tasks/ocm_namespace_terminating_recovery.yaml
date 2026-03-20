@@ -33,9 +33,10 @@
       done
       # 2) Namespace object — clear metadata.finalizers (re-added while operators reconcile)
       oc patch namespace "$NS" --type=merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
-      # 3) finalize subresource (Kubernetes) — requires jq
+      # 3) /finalize subresource: clear spec.finalizers + metadata.finalizers (requires jq)
       if command -v jq >/dev/null 2>&1 && oc get namespace "$NS" -o name 2>/dev/null | grep -q .; then
-        oc get namespace "$NS" -o json 2>/dev/null | jq '.metadata.finalizers = []' | \
+        oc get namespace "$NS" -o json 2>/dev/null | \
+          jq '(.spec //= {}) | .spec.finalizers = [] | .metadata.finalizers = []' | \
           oc replace --raw "/api/v1/namespaces/${NS}/finalize" -f - 2>/dev/null || true
       fi
       # 4) Namespace gone?

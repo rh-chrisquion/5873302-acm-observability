@@ -1,8 +1,8 @@
 ---
-# Clears metadata.finalizers on a Namespace (Terminating). Prefer oc patch + optional /finalize.
+# Namespace stuck Terminating: oc patch + finalize subresource (see K8s Namespace spec.finalizers / metadata.finalizers).
 # Expects: strip_namespace_name
 
-- name: "Remove finalizers from namespace {{ strip_namespace_name }} (oc patch)"
+- name: "Remove finalizers from namespace {{ strip_namespace_name }} (oc patch metadata)"
   ansible.builtin.command: >-
     oc patch namespace {{ strip_namespace_name }}
     --type=merge
@@ -12,18 +12,21 @@
   failed_when: false
   when: strip_namespace_finalizers_on_delete | default(true) | bool
 
-- name: "Remove namespace finalizers via finalize subresource (jq + oc replace --raw)"
+- name: "Finalize namespace via oc replace --raw /finalize (jq clears spec + metadata finalizers)"
   ansible.builtin.shell: |
     set +e
     NS="{{ strip_namespace_name }}"
     if ! command -v jq >/dev/null 2>&1; then
+      echo "jq not found; install jq or set strip_namespace_use_jq_finalize: false" >&2
       exit 0
     fi
     oc get namespace "$NS" -o json 2>/dev/null | \
-      jq '.metadata.finalizers = []' | \
+      jq '(.spec //= {}) | .spec.finalizers = [] | .metadata.finalizers = []' | \
       oc replace --raw "/api/v1/namespaces/${NS}/finalize" -f - 2>/dev/null
   args:
     executable: /bin/bash
+  register: strip_ns_finalize_raw
+  changed_when: strip_ns_finalize_raw.rc == 0
   failed_when: false
   when:
     - strip_namespace_finalizers_on_delete | default(true) | bool

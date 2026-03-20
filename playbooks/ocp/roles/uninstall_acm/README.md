@@ -110,7 +110,7 @@ Or:
 | `acm_console_plugin_names` | `["acm","mce"]` | Plugin names to remove |
 | `delete_operator_namespace` | `true` | Delete ACM operator namespace (`open-cluster-management`) |
 | `strip_namespace_finalizers_on_delete` | `true` | After each targeted namespace delete, patch `metadata.finalizers` to `[]` (helps **Terminating** namespaces) |
-| `strip_namespace_use_jq_finalize` | `true` | Also run `jq` + `oc replace --raw /finalize` on the Namespace (set `false` if `jq` is not installed) |
+| `strip_namespace_use_jq_finalize` | `true` | Run `oc get ns … -o json \| jq '(.spec //= {}) \| .spec.finalizers = [] \| .metadata.finalizers = []' \| oc replace --raw …/finalize` (set `false` if `jq` is missing) |
 | `strip_finalizers_on_namespace_contents` | `true` | Before deleting **open-cluster-management**, clear finalizers on OLM/workload objects **inside** the namespace |
 | `ocm_namespace_aggressive_terminating_recovery` | `true` | After the delete request, retry loop: strip in-namespace finalizers + namespace finalizers (handles re-added finalizers) |
 | `ocm_namespace_terminating_recovery_attempts` | `12` | Retry count for the recovery loop |

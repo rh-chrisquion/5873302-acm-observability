@@ -101,7 +101,7 @@ Manifests are written to `./gitops-backup/` by default.
 | `gitops_consolelink_disable_pause_seconds` | `15` | Seconds to pause after the patch (set `0` to skip). |
 | `gitops_console_plugin_names` | `["gitops"]` | ConsolePlugin resources to delete after the patch. |
 | `strip_namespace_finalizers_on_delete` | `true` | After requesting **`openshift-gitops`** deletion, patch namespace finalizers + optional `jq` `/finalize`. |
-| `strip_namespace_use_jq_finalize` | `true` | Use `jq` + `oc replace --raw /finalize` (set `false` if `jq` is missing). |
+| `strip_namespace_use_jq_finalize` | `true` | `oc get ns … \| jq '(.spec //= {}) \| .spec.finalizers = [] \| .metadata.finalizers = []' \| oc replace --raw …/finalize` (set `false` if `jq` is missing). |
 | `strip_finalizers_on_namespace_contents` | `true` | Before namespace delete, clear finalizers on Argo/OLM/workload objects in the GitOps namespace. |
 | `gitops_namespace_aggressive_terminating_recovery` | `true` | Retry loop to strip finalizers if the namespace stays **Terminating**. |
 | `gitops_namespace_terminating_recovery_attempts` | `12` | Retry count. |
