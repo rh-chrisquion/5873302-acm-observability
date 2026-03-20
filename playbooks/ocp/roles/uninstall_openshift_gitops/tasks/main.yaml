@@ -136,6 +136,28 @@
   ignore_errors: true
   when: gitops_namespace_info.resources | length > 0
 
+- name: "Delete OpenShift GitOps operator Subscription"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ gitops_operator_subscription_name }}"
+    namespace: "{{ gitops_operator_namespace }}"
+    state: absent
+  when: gitops_subscription_info.resources | length > 0
+
+- name: "Wait for GitOps Subscription to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ gitops_operator_subscription_name }}"
+    namespace: "{{ gitops_operator_namespace }}"
+  register: subscription_deleted
+  until: subscription_deleted.resources | length == 0
+  retries: 30
+  delay: 5
+  failed_when: false
+  when: gitops_subscription_info.resources | length > 0
+
 - name: "Check if ArgoCD custom resource exists"
   kubernetes.core.k8s_info:
     api_version: argoproj.io/v1beta1
@@ -198,15 +220,6 @@
     - gitops_subscription_info.resources | length > 0
     - gitops_sub_merged_env is defined
 
-- name: "Wait for GitOps operator to reconcile ConsoleLink disable (optional)"
-  ansible.builtin.pause:
-    seconds: "{{ gitops_consolelink_disable_pause_seconds | default(15) | int }}"
-  when:
-    - disable_argocd_consolelink_via_subscription | default(true) | bool
-    - gitops_subscription_info.resources | length > 0
-    - gitops_sub_merged_env is defined
-    - (gitops_consolelink_disable_pause_seconds | default(15) | int) > 0
-
 - name: "Delete Argo CD console plugin (ConsolePlugin) so it is no longer available"
   kubernetes.core.k8s:
     api_version: console.openshift.io/v1
@@ -217,27 +230,6 @@
   ignore_errors: true
   when: gitops_console_plugin_names | default([]) | length > 0
 
-- name: "Delete OpenShift GitOps operator Subscription"
-  kubernetes.core.k8s:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: "{{ gitops_operator_subscription_name }}"
-    namespace: "{{ gitops_operator_namespace }}"
-    state: absent
-  when: gitops_subscription_info.resources | length > 0
-
-- name: "Wait for GitOps Subscription to be deleted"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: "{{ gitops_operator_subscription_name }}"
-    namespace: "{{ gitops_operator_namespace }}"
-  register: subscription_deleted
-  until: subscription_deleted.resources | length == 0
-  retries: 30
-  delay: 5
-  failed_when: false
-  when: gitops_subscription_info.resources | length > 0
 
 - name: "Delete OpenShift GitOps operator CSV"
   kubernetes.core.k8s:
