@@ -18,6 +18,8 @@ The role splits work into:
 
 ### Full uninstall (playbook)
 
+`full_uninstall.yaml` removes **Multicluster Engine (MCE) before the ACM operator**: `MultiClusterEngine` CR (with a wait), MCE **Subscription**, **CSV** (including any leftover CSVs in the namespace), **InstallPlans**, **OperatorGroups**, then precleans and deletes the **`multicluster-engine`** namespace (when enabled). Only then does it remove the ACM **Subscription**/CSV and continue with webhooks and the **`open-cluster-management`** namespace.
+
 ```bash
 ansible-playbook playbooks/ocp/uninstall-acm.yaml
 ```
@@ -95,6 +97,8 @@ Or:
 | `delete_mce_operator` | `true` | Remove MCE Subscription/CSV |
 | `delete_mce_operator_csv` | `true` | Delete MCE CSV |
 | `delete_multiclusterengine_cr` | `true` | Delete **MultiClusterEngine** CR first |
+| `mce_cr_deletion_retries` | `60` | After `MultiClusterEngine` delete, poll until CRs are gone |
+| `mce_cr_deletion_delay` | `10` | Seconds between retries |
 | `preclean_mce_namespace_before_delete` | `true` | Preclean MCE namespace |
 | `mce_namespace_preclean_passes` | `3` | MCE preclean passes |
 | `delete_mce_namespace` | `true` | Delete **multicluster-engine** namespace |

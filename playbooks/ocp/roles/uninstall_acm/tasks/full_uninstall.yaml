@@ -1,52 +1,5 @@
-- name: "Check if ACM operator Subscription exists"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: "{{ acm_operator_subscription_name }}"
-    namespace: "{{ acm_operator_subscription_namespace }}"
-  register: acm_subscription_info
-  ignore_errors: true
+# Multicluster Engine (MCE) is removed before the ACM operator so operands can terminate cleanly.
 
-- name: "Get current CSV from Subscription"
-  set_fact:
-    acm_current_csv: "{{ acm_subscription_info.resources[0].status.currentCSV }}"
-  when:
-    - acm_subscription_info.resources | length > 0
-    - acm_subscription_info.resources[0].status.currentCSV is defined
-
-- name: "Delete ACM operator Subscription"
-  kubernetes.core.k8s:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: "{{ acm_operator_subscription_name }}"
-    namespace: "{{ acm_operator_subscription_namespace }}"
-    state: absent
-  when: acm_subscription_info.resources | length > 0
-
-- name: "Wait for Subscription to be deleted"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: "{{ acm_operator_subscription_name }}"
-    namespace: "{{ acm_operator_subscription_namespace }}"
-  register: subscription_deleted
-  until: subscription_deleted.resources | length == 0
-  retries: 30
-  delay: 5
-  failed_when: false
-  when: acm_subscription_info.resources | length > 0
-
-- name: "Delete ACM operator CSV"
-  kubernetes.core.k8s:
-    api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    name: "{{ acm_current_csv }}"
-    namespace: "{{ acm_operator_subscription_namespace }}"
-    state: absent
-  when:
-    - acm_current_csv is defined
-
-# MultiClusterEngine is cluster-scoped; deleting it tears down cluster-proxy-addon and other MCE operands
 - name: "List MultiClusterEngine custom resources (cluster-scoped)"
   kubernetes.core.k8s_info:
     api_version: multicluster.openshift.io/v1
@@ -58,7 +11,7 @@
     - delete_mce_operator | bool
     - delete_multiclusterengine_cr | default(true) | bool
 
-- name: "Delete MultiClusterEngine custom resources (releases cluster-proxy-addon-user and other MCE workloads)"
+- name: "Delete MultiClusterEngine custom resources (releases cluster-proxy-addon and other MCE workloads)"
   kubernetes.core.k8s:
     api_version: multicluster.openshift.io/v1
     kind: MultiClusterEngine
@@ -66,6 +19,20 @@
     state: absent
   loop: "{{ multiclusterengine_crs.resources | default([]) }}"
   ignore_errors: true
+  failed_when: false
+  when:
+    - delete_mce_operator | bool
+    - delete_multiclusterengine_cr | default(true) | bool
+    - multiclusterengine_crs.resources | default([]) | length > 0
+
+- name: "Wait for MultiClusterEngine CRs to be removed from the API"
+  kubernetes.core.k8s_info:
+    api_version: multicluster.openshift.io/v1
+    kind: MultiClusterEngine
+  register: mce_crs_wait
+  until: mce_crs_wait.resources | default([]) | length == 0
+  retries: "{{ mce_cr_deletion_retries | default(60) }}"
+  delay: "{{ mce_cr_deletion_delay | default(10) }}"
   failed_when: false
   when:
     - delete_mce_operator | bool
@@ -116,7 +83,7 @@
     - delete_mce_operator | bool
     - mce_subscription_info.resources | default([]) | length > 0
 
-- name: "Delete Multicluster Engine operator CSV"
+- name: "Delete Multicluster Engine operator CSV (from Subscription status)"
   kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
     kind: ClusterServiceVersion
@@ -128,6 +95,79 @@
     - delete_mce_operator | bool
     - delete_mce_operator_csv | bool
     - mce_current_csv is defined
+
+- name: "List all ClusterServiceVersions in multicluster-engine namespace"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ mce_operator_subscription_namespace }}"
+  register: mce_all_csvs
+  ignore_errors: true
+  failed_when: false
+  when: delete_mce_operator | bool
+
+- name: "Delete any remaining ClusterServiceVersions in multicluster-engine namespace"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ mce_operator_subscription_namespace }}"
+    state: absent
+  loop: "{{ mce_all_csvs.resources | default([]) }}"
+  ignore_errors: true
+  failed_when: false
+  when:
+    - delete_mce_operator | bool
+    - delete_mce_operator_csv | bool
+    - mce_all_csvs.resources | default([]) | length > 0
+
+- name: "List InstallPlans in multicluster-engine namespace"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: "{{ mce_operator_subscription_namespace }}"
+  register: mce_installplans
+  ignore_errors: true
+  failed_when: false
+  when: delete_mce_operator | bool
+
+- name: "Delete InstallPlans in multicluster-engine namespace"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ mce_operator_subscription_namespace }}"
+    state: absent
+  loop: "{{ mce_installplans.resources | default([]) }}"
+  ignore_errors: true
+  failed_when: false
+  when:
+    - delete_mce_operator | bool
+    - mce_installplans.resources | default([]) | length > 0
+
+- name: "List OperatorGroups in multicluster-engine namespace"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1
+    kind: OperatorGroup
+    namespace: "{{ mce_operator_subscription_namespace }}"
+  register: mce_operatorgroups
+  ignore_errors: true
+  failed_when: false
+  when: delete_mce_operator | bool
+
+- name: "Delete OperatorGroups in multicluster-engine namespace"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1
+    kind: OperatorGroup
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ mce_operator_subscription_namespace }}"
+    state: absent
+  loop: "{{ mce_operatorgroups.resources | default([]) }}"
+  ignore_errors: true
+  failed_when: false
+  when:
+    - delete_mce_operator | bool
+    - mce_operatorgroups.resources | default([]) | length > 0
 
 - name: "Check if multicluster-engine namespace exists (MCE preclean)"
   kubernetes.core.k8s_info:
@@ -180,6 +220,57 @@
     - delete_mce_operator | bool
     - delete_mce_namespace | default(true) | bool
     - mce_namespace_preclean_check.resources | default([]) | length > 0
+
+# --- ACM operator (after MCE) ---
+
+- name: "Check if ACM operator Subscription exists"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ acm_operator_subscription_name }}"
+    namespace: "{{ acm_operator_subscription_namespace }}"
+  register: acm_subscription_info
+  ignore_errors: true
+
+- name: "Get current CSV from ACM Subscription"
+  ansible.builtin.set_fact:
+    acm_current_csv: "{{ acm_subscription_info.resources[0].status.currentCSV }}"
+  when:
+    - acm_subscription_info.resources | length > 0
+    - acm_subscription_info.resources[0].status.currentCSV is defined
+
+- name: "Delete ACM operator Subscription"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ acm_operator_subscription_name }}"
+    namespace: "{{ acm_operator_subscription_namespace }}"
+    state: absent
+  when: acm_subscription_info.resources | length > 0
+
+- name: "Wait for ACM Subscription to be deleted"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ acm_operator_subscription_name }}"
+    namespace: "{{ acm_operator_subscription_namespace }}"
+  register: subscription_deleted
+  until: subscription_deleted.resources | length == 0
+  retries: 30
+  delay: 5
+  failed_when: false
+  when: acm_subscription_info.resources | length > 0
+
+- name: "Delete ACM operator CSV"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ acm_current_csv }}"
+    namespace: "{{ acm_operator_subscription_namespace }}"
+    state: absent
+  when:
+    - acm_current_csv is defined
+    - delete_operator_csv | default(true) | bool
 
 # Stops console from loading dead ACM/MCE plugin endpoints (e.g. Failed to get manifest from /api/plugins/acm/)
 - name: "Delete ACM/MCE ConsolePlugin resources"
@@ -349,5 +440,6 @@
     msg: "Namespace {{ acm_operator_subscription_namespace }} delete was requested; the play does not wait for removal. If it stays Terminating, clear finalizers or remove blocking resources manually."
   when: delete_operator_namespace | bool
 
-- debug:
-    msg: "ACM has been successfully uninstalled from the cluster."
+- name: "ACM uninstall finished"
+  ansible.builtin.debug:
+    msg: "ACM has been successfully uninstalled from the cluster (MCE removed first when delete_mce_operator is true)."
