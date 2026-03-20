@@ -1,3 +1,8 @@
+---
+# Hub phase (MCO, detach, MultiClusterHub) runs first via import — see hub_uninstall.yaml
+- name: Hub uninstall phase before operator teardown
+  ansible.builtin.import_tasks: hub_uninstall.yaml
+
 # Multicluster Engine (MCE) is removed before the ACM operator so operands can terminate cleanly.
 
 - name: "List MultiClusterEngine custom resources (cluster-scoped)"

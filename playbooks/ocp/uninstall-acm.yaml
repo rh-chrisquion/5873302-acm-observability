@@ -1,13 +1,14 @@
-# Full ACM uninstall (MCO + detach MCs when full mode, then MCH + operator/MCE teardown).
+# Full ACM uninstall: full_uninstall.yaml imports hub_uninstall.yaml first (MCO, detach, MCH), then MCE/ACM operator teardown.
 # For MultiClusterHub CR-only: acm_uninstall_mode: multiclusterhub_cr_only
 # For MCO + detach only (no MCH/operator removal): use role default main.yaml, e.g. include_role tasks_from: main.yaml
+# For hub+MCH only (no operator teardown): include_role tasks_from: hub_uninstall.yaml
 - name: Uninstall ACM
   hosts: localhost
   vars_files:
     - ../group_vars/all.yaml
   gather_facts: false
   tasks:
-    - name: Run uninstall_acm hub teardown
+    - name: Run full ACM uninstall (hub phase + operator teardown)
       ansible.builtin.include_role:
         name: uninstall_acm
-        tasks_from: hub_uninstall.yaml
+        tasks_from: full_uninstall.yaml

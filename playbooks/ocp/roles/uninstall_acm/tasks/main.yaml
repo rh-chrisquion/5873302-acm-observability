@@ -1,6 +1,6 @@
 ---
 # Basic hub prep: remove MultiClusterObservability CR, then detach managed clusters
-# (KlusterletAddonConfig + ManagedCluster). Full operator/MCH teardown uses tasks_from: hub_uninstall.yaml
+# (KlusterletAddonConfig + ManagedCluster). Full teardown uses tasks_from: full_uninstall.yaml (imports hub_uninstall.yaml first).
 
 - name: "Check if MultiClusterObservability custom resource exists"
   kubernetes.core.k8s_info:

@@ -5,14 +5,15 @@ The role splits work into:
 | Entry | File | What it does |
 |-------|------|----------------|
 | **Default / `tasks_from: main.yaml`** | `tasks/main.yaml` | Deletes **MultiClusterObservability** (if present), then **detaches managed clusters** (KlusterletAddonConfig + ManagedCluster) when `cleanup_managed_clusters` is true. |
-| **Full hub + operator uninstall** | `tasks/hub_uninstall.yaml` | For **`full`**: runs `main.yaml` first, then deletes **MultiClusterHub**, then operator/MCE/webhooks/namespace teardown. For **`multiclusterhub_cr_only`**: deletes **MultiClusterHub** only and ends the play (no MCO/MCO step, no operator removal). |
+| **Full hub + operator uninstall** | `tasks/full_uninstall.yaml` | **Imports `hub_uninstall.yaml` first** (MCO + detach when `full`, **MultiClusterHub** delete, optional CR-only `end_play`), then MCE/ACM operator teardown (Subscription, CSV, webhooks, namespaces, …). |
+| **Hub phase only** | `tasks/hub_uninstall.yaml` | Same hub steps as above **without** importing operator teardown. Use for **`multiclusterhub_cr_only`** or when you only want MCO/MCH work without `full_uninstall`. |
 
-### `acm_uninstall_mode` (hub_uninstall only)
+### `acm_uninstall_mode` (hub phase — used by `hub_uninstall.yaml` and by `full_uninstall.yaml` via import)
 
 | Mode | Behavior |
 |------|----------|
-| **`full`** (default) | Runs **main** (MCO + detach), then removes **MultiClusterHub**, then **full_uninstall** (Subscription, MCE, console plugins, webhooks, optional namespace, …). |
-| **`multiclusterhub_cr_only`** | Removes only the **MultiClusterHub** CR. Operator Subscription/CSV unchanged. Play ends. Does **not** run **main** (MCO and managed clusters are left as-is). |
+| **`full`** (default) | Hub phase runs **main** (MCO + detach), then removes **MultiClusterHub**. If `tasks_from` is **`full_uninstall.yaml`**, operator/MCE/webhook/namespace teardown follows. |
+| **`multiclusterhub_cr_only`** | Hub phase removes only the **MultiClusterHub** CR and **`end_play`s**. Operator Subscription/CSV unchanged. Does **not** run **main** (MCO and managed clusters are left as-is). |
 
 ## Usage
 
@@ -32,7 +33,7 @@ Equivalent:
   tasks:
     - ansible.builtin.include_role:
         name: uninstall_acm
-        tasks_from: hub_uninstall.yaml
+        tasks_from: full_uninstall.yaml
 ```
 
 ### MCO + detach only (no hub/operator teardown)
@@ -62,14 +63,14 @@ Or:
         acm_uninstall_mode: multiclusterhub_cr_only
 ```
 
-### With custom variables
+### With custom variables (full teardown)
 
 ```yaml
 - hosts: localhost
   tasks:
     - ansible.builtin.include_role:
         name: uninstall_acm
-        tasks_from: hub_uninstall.yaml
+        tasks_from: full_uninstall.yaml
       vars:
         acm_multiclusterhub_name: "multiclusterhub"
         cleanup_managed_clusters: true
@@ -80,7 +81,7 @@ Or:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `acm_uninstall_mode` | `full` | Only for **hub_uninstall**: `full` or `multiclusterhub_cr_only` |
+| `acm_uninstall_mode` | `full` | Hub phase: `full` or `multiclusterhub_cr_only` (applies when using **`hub_uninstall.yaml`** or **`full_uninstall.yaml`**) |
 | `cleanup_managed_clusters` | `true` | In **main**: remove KlusterletAddonConfigs and **ManagedCluster** CRs (detach). Set `false` to skip. |
 | `acm_multiclusterhub_name` | `multiclusterhub` | MultiClusterHub CR name |
 | `acm_multiclusterhub_namespace` | `open-cluster-management` | MultiClusterHub namespace |

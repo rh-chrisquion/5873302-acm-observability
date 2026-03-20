@@ -51,6 +51,4 @@
   ansible.builtin.meta: end_play
   when: acm_uninstall_mode | default('full') == 'multiclusterhub_cr_only'
 
-- name: Import full ACM operator teardown tasks
-  ansible.builtin.import_tasks: full_uninstall.yaml
-  when: acm_uninstall_mode | default('full') == 'full'
+# Operator/MCE/webhook/namespace teardown lives in full_uninstall.yaml, which imports this file first.
