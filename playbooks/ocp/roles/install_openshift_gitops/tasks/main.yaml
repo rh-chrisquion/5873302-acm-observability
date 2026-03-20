@@ -50,18 +50,18 @@
   delay: 10
   when: wait_for_operator_ready
 
-- name: "Wait for the GitOps Operator Deployment to be Ready"
+# OLM: wait on CSV phase (Succeeded) — Deployment labels vary by version; label selectors are unreliable.
+- name: "Wait for GitOps ClusterServiceVersion to be Succeeded"
   kubernetes.core.k8s_info:
-    api_version: apps/v1
-    kind: Deployment
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
     namespace: "{{ gitops_operator_namespace }}"
-    label_selectors:
-      - "operators.coreos.com/openshift-gitops-operator.{{ gitops_operator_namespace }}="
-  register: gitops_deployment
+    name: "{{ gitops_sub.resources[0].status.currentCSV }}"
+  register: gitops_csv
   until:
-    - gitops_deployment.resources | length > 0
-    - gitops_deployment.resources[0].status.availableReplicas is defined
-    - gitops_deployment.resources[0].status.availableReplicas > 0
+    - gitops_csv.resources | length > 0
+    - gitops_csv.resources[0].status.phase is defined
+    - gitops_csv.resources[0].status.phase == "Succeeded"
   retries: 60
   delay: 10
   when: wait_for_operator_ready
