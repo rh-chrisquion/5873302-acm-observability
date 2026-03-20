@@ -19,8 +19,11 @@ All saved manifests are written under `gitops_backup_dir` (default: `gitops-back
 1. Create backup directory and export the manifests above.
 2. Run the **wipe_argo** role (included automatically): deletes all Argo CD Applications, ApplicationSets, AppProjects, repository secrets (repos), and repo-creds secrets in the GitOps namespace.
 3. Delete the GitOpsService and Argo CD custom resource (openshift-gitops instance).
-4. Delete the OpenShift GitOps operator Subscription.
-5. Optionally delete the operator CSV and the GitOps namespace.
+4. **Before removing the Argo CD `ConsolePlugin`**: patch the **`openshift-gitops-operator` `Subscription`** in `openshift-operators` to set **`DISABLE_DEFAULT_ARGOCD_CONSOLELINK=true`** in `spec.config.env` (so the operator drops the default ConsoleLink / console integration before the plugin CR is deleted). Optional short pause for reconciliation.
+5. Delete the Argo CD **ConsolePlugin** CR(s) (e.g. `gitops`).
+6. Delete the OpenShift GitOps operator Subscription.
+7. Optionally delete the operator CSV.
+8. When **`delete_gitops_namespace: true`**: strip finalizers on **Applications**, **ArgoCD**, **GitopsService**, OLM objects, and workloads **inside** `openshift-gitops`, then **`oc delete`/`k8s` the namespace**, then **`oc patch`** / optional **`jq` + `/finalize`** on the Namespace, then a **retry loop** if the namespace stays **Terminating** (same idea as `uninstall_acm`).
 
 ## Requirements
 
@@ -94,6 +97,15 @@ Manifests are written to `./gitops-backup/` by default.
 | `save_cluster_connections` | `false` | Save cluster connection secrets. |
 | `delete_gitops_namespace` | `false` | Delete the GitOps namespace after uninstall. |
 | `delete_operator_csv` | `true` | Delete the operator CSV after removing the subscription. |
+| `disable_argocd_consolelink_via_subscription` | `true` | Patch Subscription with `DISABLE_DEFAULT_ARGOCD_CONSOLELINK=true` before deleting the ConsolePlugin. |
+| `gitops_consolelink_disable_pause_seconds` | `15` | Seconds to pause after the patch (set `0` to skip). |
+| `gitops_console_plugin_names` | `["gitops"]` | ConsolePlugin resources to delete after the patch. |
+| `strip_namespace_finalizers_on_delete` | `true` | After requesting **`openshift-gitops`** deletion, patch namespace finalizers + optional `jq` `/finalize`. |
+| `strip_namespace_use_jq_finalize` | `true` | Use `jq` + `oc replace --raw /finalize` (set `false` if `jq` is missing). |
+| `strip_finalizers_on_namespace_contents` | `true` | Before namespace delete, clear finalizers on Argo/OLM/workload objects in the GitOps namespace. |
+| `gitops_namespace_aggressive_terminating_recovery` | `true` | Retry loop to strip finalizers if the namespace stays **Terminating**. |
+| `gitops_namespace_terminating_recovery_attempts` | `12` | Retry count. |
+| `gitops_namespace_terminating_recovery_delay_seconds` | `15` | Sleep between retries. |
 
 ## Re-applying saved manifests
 
@@ -113,4 +125,4 @@ With `delete_operator_csv: true` and `delete_gitops_namespace: true`, the role r
 
 - If the GitOps namespace does not exist, backup tasks are skipped and only operator Subscription/CSV removal runs if present.
 - Saved secrets contain credentials; restrict access to `gitops_backup_dir` and do not commit it to version control.
-- If the GitOps namespace sticks in `Terminating` due to finalizers, remove blocking finalizers or wait for the operator to release them; the role does not modify finalizers.
+- If **`openshift-gitops`** still sticks in **`Terminating`**, ensure **`jq`** is available (or set **`strip_namespace_use_jq_finalize: false`**) and inspect **`oc get all -n openshift-gitops`**. The role strips **Application / AppProject / ArgoCD / GitopsService** and OLM object finalizers before namespace delete, then retries namespace finalizer removal.

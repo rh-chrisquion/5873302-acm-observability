@@ -547,6 +547,16 @@
     - preclean_ocm_namespace_before_delete | default(true) | bool
     - ocm_namespace_preclean_check.resources | default([]) | length > 0
 
+# Clear finalizers on Subscriptions/CSVs/Pods/etc. before deleting the Namespace — blocking objects
+# and running operator pods often re-add the namespace finalizer until operands finish terminating.
+- name: "Strip finalizers on namespaced resources in ACM operator namespace (before namespace delete)"
+  ansible.builtin.include_tasks: strip_finalizers_on_namespaced_resources.yaml
+  vars:
+    strip_namespace_name: "{{ acm_operator_subscription_namespace }}"
+  when:
+    - delete_operator_namespace | bool
+    - strip_finalizers_on_namespace_contents | default(true) | bool
+
 - name: "Delete ACM operator namespace"
   kubernetes.core.k8s:
     api_version: v1
@@ -555,17 +565,25 @@
     state: absent
   when: delete_operator_namespace | bool
 
-- name: "Clear finalizers on ACM operator namespace (if Terminating)"
+- name: "Clear finalizers on ACM operator namespace (first pass after delete request)"
   ansible.builtin.include_tasks: strip_namespace_finalizers.yaml
   vars:
     strip_namespace_name: "{{ acm_operator_subscription_namespace }}"
   when: delete_operator_namespace | bool
 
-- name: "Note on namespace deletion (no wait — Terminating often blocks completion)"
+- name: "Retry stripping in-namespace + namespace finalizers if still Terminating (controllers may re-add)"
+  ansible.builtin.include_tasks: ocm_namespace_terminating_recovery.yaml
+  when:
+    - delete_operator_namespace | bool
+    - strip_namespace_finalizers_on_delete | default(true) | bool
+    - ocm_namespace_aggressive_terminating_recovery | default(true) | bool
+
+- name: "Note on namespace deletion"
   ansible.builtin.debug:
     msg: >-
       Namespace {{ acm_operator_subscription_namespace }} delete was requested.
-      Finalizers were cleared when strip_namespace_finalizers_on_delete is true; if still stuck, remove blocking resources or investigate.
+      When strip_namespace_finalizers_on_delete is true, the role patches namespace finalizers, runs jq finalize when available,
+      and retries ocm_namespace_terminating_recovery_attempts times. If still Terminating, check remaining objects: oc get all -n {{ acm_operator_subscription_namespace }}
   when: delete_operator_namespace | bool
 
 - name: "ACM uninstall finished"

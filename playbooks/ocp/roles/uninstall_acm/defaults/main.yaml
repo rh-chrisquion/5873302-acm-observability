@@ -75,6 +75,16 @@ delete_operator_namespace: true
 
 # After requesting namespace deletion, patch metadata.finalizers to [] (helps stuck Terminating namespaces)
 strip_namespace_finalizers_on_delete: true
+# After oc patch, use jq + oc replace --raw .../finalize (requires jq on the control host)
+strip_namespace_use_jq_finalize: true
+
+# Before deleting open-cluster-management: strip finalizers on Subscriptions/CSVs/Pods/etc. inside the namespace
+strip_finalizers_on_namespace_contents: true
+
+# After delete + first finalizer patch, retry stripping object + namespace finalizers (handles re-added finalizers)
+ocm_namespace_aggressive_terminating_recovery: true
+ocm_namespace_terminating_recovery_attempts: 12
+ocm_namespace_terminating_recovery_delay_seconds: 15
 
 # Delete open-cluster-management-observability (MCO operands) when uninstalling observability from full_uninstall
 delete_observability_namespace: true

@@ -1,0 +1,57 @@
+---
+# Retry loop: strip in-namespace + namespace finalizers until openshift-gitops is gone or max attempts.
+# Expects: gitops_namespace (defaults)
+
+- name: "Recover stuck Terminating GitOps namespace (retries)"
+  ansible.builtin.shell: |
+    set +e
+    NS="{{ gitops_namespace }}"
+    ATTEMPTS="{{ gitops_namespace_terminating_recovery_attempts | default(12) | int }}"
+    SLEEP="{{ gitops_namespace_terminating_recovery_delay_seconds | default(15) | int }}"
+    if ! oc get namespace "$NS" -o name 2>/dev/null | grep -q .; then
+      echo "Namespace ${NS} already removed — nothing to recover"
+      exit 0
+    fi
+    i=1
+    while [ "$i" -le "$ATTEMPTS" ]; do
+      echo "gitops namespace recovery attempt $i of $ATTEMPTS"
+      for KIND in \
+        applications.argoproj.io applicationsets.argoproj.io appprojects.argoproj.io \
+        argocds.argoproj.io \
+        gitopsservices.pipelines.openshift.io \
+        pods deployments.apps replicasets.apps statefulsets.apps daemonsets.apps \
+        subscriptions.operators.coreos.com clusterserviceversions.operators.coreos.com \
+        installplans.operators.coreos.com operatorgroups.operators.coreos.com \
+        catalogsources.operators.coreos.com \
+        secrets configmaps services serviceaccounts \
+        rolebindings.rbac.authorization.k8s.io roles.rbac.authorization.k8s.io \
+        persistentvolumeclaims \
+        routes.route.openshift.io; do
+        for RES in $(oc get "$KIND" -n "$NS" -o name 2>/dev/null); do
+          [ -n "$RES" ] || continue
+          oc patch "$RES" -n "$NS" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+        done
+      done
+      oc patch namespace "$NS" --type=merge -p '{"metadata":{"finalizers":[]}}' 2>/dev/null || true
+      if command -v jq >/dev/null 2>&1 && oc get namespace "$NS" -o name 2>/dev/null | grep -q .; then
+        oc get namespace "$NS" -o json 2>/dev/null | jq '.metadata.finalizers = []' | \
+          oc replace --raw "/api/v1/namespaces/${NS}/finalize" -f - 2>/dev/null || true
+      fi
+      if ! oc get namespace "$NS" -o name 2>/dev/null | grep -q .; then
+        echo "Namespace ${NS} no longer exists"
+        exit 0
+      fi
+      sleep "$SLEEP"
+      i=$((i + 1))
+    done
+    echo "Namespace ${NS} may still exist after ${ATTEMPTS} attempts"
+    exit 0
+  args:
+    executable: /bin/bash
+  register: gitops_ns_recovery
+  changed_when: true
+  failed_when: false
+  when:
+    - delete_gitops_namespace | bool
+    - strip_namespace_finalizers_on_delete | default(true) | bool
+    - gitops_namespace_aggressive_terminating_recovery | default(true) | bool

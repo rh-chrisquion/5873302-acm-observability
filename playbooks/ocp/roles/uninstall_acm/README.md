@@ -110,6 +110,11 @@ Or:
 | `acm_console_plugin_names` | `["acm","mce"]` | Plugin names to remove |
 | `delete_operator_namespace` | `true` | Delete ACM operator namespace (`open-cluster-management`) |
 | `strip_namespace_finalizers_on_delete` | `true` | After each targeted namespace delete, patch `metadata.finalizers` to `[]` (helps **Terminating** namespaces) |
+| `strip_namespace_use_jq_finalize` | `true` | Also run `jq` + `oc replace --raw /finalize` on the Namespace (set `false` if `jq` is not installed) |
+| `strip_finalizers_on_namespace_contents` | `true` | Before deleting **open-cluster-management**, clear finalizers on OLM/workload objects **inside** the namespace |
+| `ocm_namespace_aggressive_terminating_recovery` | `true` | After the delete request, retry loop: strip in-namespace finalizers + namespace finalizers (handles re-added finalizers) |
+| `ocm_namespace_terminating_recovery_attempts` | `12` | Retry count for the recovery loop |
+| `ocm_namespace_terminating_recovery_delay_seconds` | `15` | Sleep between retries |
 | `delete_observability_namespace` | `false` | Delete **`open-cluster-management-observability`** in `full_uninstall` (after MCO CR removal) |
 | `observability_namespace_name` | `open-cluster-management-observability` | Observability namespace to delete when `delete_observability_namespace` is true |
 | `preclean_ocm_namespace_before_delete` | `true` | Preclean OCM namespace before delete |
@@ -125,3 +130,4 @@ Or:
 - **`multiclusterhub_cr_only`** does not remove MCO; with **`cleanup_managed_clusters: true`** it still **detaches ManagedClusters before MCH**. Use **full** or **main** if you need MCO removed.
 - The role tolerates missing resources.
 - **`delete_operator_namespace: true`** does not wait for namespace termination; with **`strip_namespace_finalizers_on_delete: true`** (default), the role patches **finalizers** on **multicluster-engine**, **observability** (if deleted), and **ACM** namespaces after delete requests.
+- **Terminating** **`open-cluster-management`** often happens when **objects inside** the namespace still have finalizers, or the **ACM operator** reconciles and **re-adds** namespace `metadata.finalizers` until operands are gone. The role strips finalizers on **Subscriptions, CSVs, pods**, etc. **before** namespace delete, then runs **`oc patch`**, optional **`jq` + `/finalize`**, and a **retry loop** (`ocm_namespace_terminating_recovery_*`). If the namespace still sticks, install **`jq`** on the Ansible control host or set **`strip_namespace_use_jq_finalize: false`**, and inspect **`oc get all -n open-cluster-management -o wide`**.

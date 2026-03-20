@@ -1,0 +1,30 @@
+---
+# Clears metadata.finalizers on common kinds still in the namespace.
+# Stuck Subscriptions/CSVs/Pods/etc. block namespace deletion and keep controllers reconciling.
+# Expects: strip_namespace_name
+
+- name: "Clear finalizers on namespaced resources in {{ strip_namespace_name }}"
+  ansible.builtin.shell: |
+    set +e
+    NS="{{ strip_namespace_name }}"
+    for KIND in \
+      pods deployments.apps replicasets.apps statefulsets.apps daemonsets.apps \
+      subscriptions.operators.coreos.com clusterserviceversions.operators.coreos.com \
+      installplans.operators.coreos.com operatorgroups.operators.coreos.com \
+      catalogsources.operators.coreos.com \
+      secrets configmaps services serviceaccounts \
+      rolebindings.rbac.authorization.k8s.io roles.rbac.authorization.k8s.io \
+      persistentvolumeclaims \
+      routes.route.openshift.io \
+      horizontalpodautoscalers.autoscaling \
+      networkpolicies.networking.k8s.io; do
+      for RES in $(oc get "$KIND" -n "$NS" -o name 2>/dev/null); do
+        [ -n "$RES" ] || continue
+        oc patch "$RES" -n "$NS" -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+      done
+    done
+  args:
+    executable: /bin/bash
+  failed_when: false
+  changed_when: true
+  when: strip_finalizers_on_namespace_contents | default(true) | bool

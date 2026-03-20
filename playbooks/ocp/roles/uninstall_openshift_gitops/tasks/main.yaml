@@ -157,6 +157,56 @@
     - gitops_namespace_info.resources | length > 0
     - argocd_cr_info.resources | length > 0
 
+# Set DISABLE_DEFAULT_ARGOCD_CONSOLELINK=true on the openshift-gitops-operator Subscription so the operator
+# removes the Argo CD console link before we delete the ConsolePlugin CR.
+- name: "Compute merged Subscription spec.config.env including DISABLE_DEFAULT_ARGOCD_CONSOLELINK"
+  ansible.builtin.set_fact:
+    gitops_sub_merged_env: >-
+      {{
+        (
+          (
+            gitops_subscription_info.resources[0].spec.config.env
+            if (gitops_subscription_info.resources | length > 0
+                and gitops_subscription_info.resources[0].spec is defined
+                and gitops_subscription_info.resources[0].spec.config is defined
+                and gitops_subscription_info.resources[0].spec.config.env is defined)
+            else []
+          )
+          | rejectattr('name', 'equalto', 'DISABLE_DEFAULT_ARGOCD_CONSOLELINK')
+          | list
+        )
+        + [{'name': 'DISABLE_DEFAULT_ARGOCD_CONSOLELINK', 'value': 'true'}]
+      }}
+  when:
+    - disable_argocd_consolelink_via_subscription | default(true) | bool
+    - gitops_subscription_info.resources | length > 0
+
+- name: "Patch OpenShift GitOps operator Subscription to set DISABLE_DEFAULT_ARGOCD_CONSOLELINK=true"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ gitops_operator_subscription_name }}"
+    namespace: "{{ gitops_operator_namespace }}"
+    state: present
+    merge_type: merge
+    definition:
+      spec:
+        config:
+          env: "{{ gitops_sub_merged_env }}"
+  when:
+    - disable_argocd_consolelink_via_subscription | default(true) | bool
+    - gitops_subscription_info.resources | length > 0
+    - gitops_sub_merged_env is defined
+
+- name: "Wait for GitOps operator to reconcile ConsoleLink disable (optional)"
+  ansible.builtin.pause:
+    seconds: "{{ gitops_consolelink_disable_pause_seconds | default(15) | int }}"
+  when:
+    - disable_argocd_consolelink_via_subscription | default(true) | bool
+    - gitops_subscription_info.resources | length > 0
+    - gitops_sub_merged_env is defined
+    - (gitops_consolelink_disable_pause_seconds | default(15) | int) > 0
+
 - name: "Delete Argo CD console plugin (ConsolePlugin) so it is no longer available"
   kubernetes.core.k8s:
     api_version: console.openshift.io/v1
@@ -210,6 +260,16 @@
     - gitops_current_csv is defined
     - delete_csv_result is failed
 
+# Strip finalizers on Argo CD / OLM objects in the namespace before deleting it (reduces Terminating + re-added namespace finalizers)
+- name: "Strip finalizers on namespaced resources in GitOps namespace (before namespace delete)"
+  ansible.builtin.include_tasks: strip_finalizers_on_namespaced_resources.yaml
+  vars:
+    strip_namespace_name: "{{ gitops_namespace }}"
+  when:
+    - delete_gitops_namespace | bool
+    - gitops_namespace_info.resources | length > 0
+    - strip_finalizers_on_namespace_contents | default(true) | bool
+
 - name: "Delete GitOps namespace"
   kubernetes.core.k8s:
     api_version: v1
@@ -219,6 +279,23 @@
   when:
     - delete_gitops_namespace | bool
     - gitops_namespace_info.resources | length > 0
+
+- name: "Clear finalizers on GitOps namespace (first pass after delete request)"
+  ansible.builtin.include_tasks: strip_namespace_finalizers.yaml
+  vars:
+    strip_namespace_name: "{{ gitops_namespace }}"
+  when:
+    - delete_gitops_namespace | bool
+    - gitops_namespace_info.resources | length > 0
+    - strip_namespace_finalizers_on_delete | default(true) | bool
+
+- name: "Retry stripping in-namespace + namespace finalizers if GitOps namespace still Terminating"
+  ansible.builtin.include_tasks: gitops_namespace_terminating_recovery.yaml
+  when:
+    - delete_gitops_namespace | bool
+    - gitops_namespace_info.resources | length > 0
+    - strip_namespace_finalizers_on_delete | default(true) | bool
+    - gitops_namespace_aggressive_terminating_recovery | default(true) | bool
 
 - name: "Wait for GitOps namespace deletion to complete"
   kubernetes.core.k8s_info:

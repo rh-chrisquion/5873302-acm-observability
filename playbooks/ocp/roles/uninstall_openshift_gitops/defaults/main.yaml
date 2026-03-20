@@ -11,6 +11,13 @@ gitops_operator_subscription_name: "openshift-gitops-operator"
 # GitOpsService instance to delete (doc: oc delete gitopsservice cluster -n openshift-gitops)
 gitops_service_name: "cluster"
 
+# Before removing the ConsolePlugin, patch the Subscription so the operator disables the default ConsoleLink
+# (DISABLE_DEFAULT_ARGOCD_CONSOLELINK=true in openshift-gitops-operator Subscription — see product docs)
+disable_argocd_consolelink_via_subscription: true
+
+# Optional pause (seconds) after patching the Subscription so the operator can reconcile before plugin removal
+gitops_consolelink_disable_pause_seconds: 15
+
 # ConsolePlugin name(s) to delete so the Argo CD console plugin is no longer available (cluster-scoped)
 gitops_console_plugin_names:
   - "gitops"
@@ -37,3 +44,11 @@ delete_gitops_namespace: false
 
 # Delete the operator CSV after removing the subscription
 delete_operator_csv: true
+
+# Namespace finalizer handling (same pattern as uninstall_acm) when delete_gitops_namespace is true
+strip_namespace_finalizers_on_delete: true
+strip_namespace_use_jq_finalize: true
+strip_finalizers_on_namespace_contents: true
+gitops_namespace_aggressive_terminating_recovery: true
+gitops_namespace_terminating_recovery_attempts: 12
+gitops_namespace_terminating_recovery_delay_seconds: 15
