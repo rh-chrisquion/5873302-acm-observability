@@ -376,6 +376,17 @@
   failed_when: false
   when: target_delete_crd_artifacts is defined and target_delete_crd_artifacts | length > 0
 
+- name: "Delete ACM CustomResourceDefinitions (by API resource name)"
+  kubernetes.core.k8s:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ target_delete_acm_crds | default([]) }}"
+  ignore_errors: true
+  failed_when: false
+  when: target_delete_acm_crds | default([]) | length > 0
+
 - name: "Delete ACM-related ValidatingWebhookConfigurations"
   kubernetes.core.k8s:
     api_version: admissionregistration.k8s.io/v1

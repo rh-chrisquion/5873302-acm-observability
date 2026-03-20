@@ -123,7 +123,8 @@ Or:
 | `delete_target_clusterroles` | *(list)* | ClusterRoles to delete |
 | `target_delete_mutating_webhook_configurations` | *(list)* | Mutating webhooks |
 | `target_delete_validating_webhook_configurations` | *(list)* | Validating webhooks |
-| `target_delete_crd_artifacts` | *(list)* | CRD-related cleanup |
+| `target_delete_crd_artifacts` | *(list)* | Legacy CRD cleanup loop (names as in defaults) |
+| `target_delete_acm_crds` | `multiclusterroleassignments.rbac.open-cluster-management.io` | **CustomResourceDefinition** `metadata.name` values to delete (`oc delete crd …`). Extend or clear as needed. |
 
 ## Notes
 
