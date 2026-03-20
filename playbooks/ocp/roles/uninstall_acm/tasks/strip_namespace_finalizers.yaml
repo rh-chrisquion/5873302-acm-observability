@@ -1,0 +1,17 @@
+---
+# Clears metadata.finalizers on a Namespace (helps unblock Terminating after delete).
+# Expects: strip_namespace_name
+
+- name: "Remove finalizers from namespace {{ strip_namespace_name }}"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ strip_namespace_name }}"
+    state: patched
+    merge_type: merge
+    definition:
+      metadata:
+        finalizers: []
+  ignore_errors: true
+  register: strip_namespace_finalizers_result
+  when: strip_namespace_finalizers_on_delete | default(true) | bool

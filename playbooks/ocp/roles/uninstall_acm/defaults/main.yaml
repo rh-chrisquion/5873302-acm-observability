@@ -68,6 +68,15 @@ delete_operator_csv: true
 # Delete the operator namespace after uninstalling
 delete_operator_namespace: true
 
+# After requesting namespace deletion, patch metadata.finalizers to [] (helps stuck Terminating namespaces)
+strip_namespace_finalizers_on_delete: true
+
+# Delete open-cluster-management-observability (MCO operands) when uninstalling observability from full_uninstall
+delete_observability_namespace: true
+
+# Observability namespace created by MCO (full_uninstall)
+observability_namespace_name: "open-cluster-management-observability"
+
 # Before deleting the namespace, delete all remaining namespaced resources (multiple passes; requires oc)
 preclean_ocm_namespace_before_delete: true
 ocm_namespace_preclean_passes: 3

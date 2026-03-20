@@ -218,9 +218,20 @@
     - delete_mce_namespace | default(true) | bool
     - mce_namespace_preclean_check.resources | default([]) | length > 0
 
+- name: "Clear finalizers on multicluster-engine namespace (if Terminating)"
+  ansible.builtin.include_tasks: strip_namespace_finalizers.yaml
+  vars:
+    strip_namespace_name: "{{ mce_operator_subscription_namespace }}"
+  when:
+    - delete_mce_operator | bool
+    - delete_mce_namespace | default(true) | bool
+    - mce_namespace_preclean_check.resources | default([]) | length > 0
+
 - name: "Note on multicluster-engine namespace (no wait if Terminating)"
   ansible.builtin.debug:
-    msg: "Namespace {{ mce_operator_subscription_namespace }} delete requested; if it stays Terminating, clear finalizers manually."
+    msg: >-
+      Namespace {{ mce_operator_subscription_namespace }} delete requested.
+      Finalizers were cleared when strip_namespace_finalizers_on_delete is true; if still stuck, investigate blocking objects.
   when:
     - delete_mce_operator | bool
     - delete_mce_namespace | default(true) | bool
@@ -376,6 +387,109 @@
   failed_when: false
   when: target_delete_validating_webhook_configurations is defined and target_delete_validating_webhook_configurations | length > 0
 
+# Remove ArgoCD Application for MCO first so GitOps does not recreate observability
+- name: "Check if ArgoCD Application for MCO exists"
+  kubernetes.core.k8s_info:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    name: "{{ mco_argocd_app_name }}"
+    namespace: "{{ mco_argocd_namespace }}"
+  register: mco_argocd_app_info
+  ignore_errors: true
+  when: remove_argocd_application | bool
+
+- name: "Delete ArgoCD Application for MCO"
+  kubernetes.core.k8s:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    name: "{{ mco_argocd_app_name }}"
+    namespace: "{{ mco_argocd_namespace }}"
+    state: absent
+  when:
+    - remove_argocd_application | bool
+    - mco_argocd_app_info.resources | length > 0
+
+# Check if MultiClusterObservability CR exists
+- name: "Check if MultiClusterObservability custom resource exists"
+  kubernetes.core.k8s_info:
+    api_version: observability.open-cluster-management.io/v1beta2
+    kind: MultiClusterObservability
+    name: "{{ mco_cr_name }}"
+    namespace: "{{ mco_cr_namespace }}"
+  register: mco_cr_info
+  ignore_errors: true
+
+- name: "Delete MultiClusterObservability custom resource"
+  kubernetes.core.k8s:
+    api_version: observability.open-cluster-management.io/v1beta2
+    kind: MultiClusterObservability
+    name: "{{ mco_cr_name }}"
+    namespace: "{{ mco_cr_namespace }}"
+    state: absent
+  when: mco_cr_info.resources | length > 0
+
+- name: "Wait for MultiClusterObservability to be fully deleted"
+  kubernetes.core.k8s_info:
+    api_version: observability.open-cluster-management.io/v1beta2
+    kind: MultiClusterObservability
+    name: "{{ mco_cr_name }}"
+    namespace: "{{ mco_cr_namespace }}"
+  register: mco_cr_deleted
+  until: mco_cr_deleted.resources | length == 0
+  retries: "{{ mco_deletion_retries }}"
+  delay: "{{ mco_deletion_delay }}"
+  failed_when: false
+  when:
+    - wait_for_mco_deletion | bool
+    - mco_cr_info.resources | length > 0
+
+# Optionally delete the observability namespace (removes Thanos, Grafana, Alertmanager, etc.)
+- name: "Check if observability namespace exists"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ observability_namespace_name }}"
+  register: mco_namespace_info
+  ignore_errors: true
+  when: delete_observability_namespace | bool
+
+- name: "Delete observability namespace"
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ observability_namespace_name }}"
+    state: absent
+  when:
+    - delete_observability_namespace | bool
+    - mco_namespace_info.resources | length > 0
+
+- name: "Clear finalizers on observability namespace (if Terminating)"
+  ansible.builtin.include_tasks: strip_namespace_finalizers.yaml
+  vars:
+    strip_namespace_name: "{{ observability_namespace_name }}"
+  when:
+    - delete_observability_namespace | bool
+    - mco_namespace_info is defined
+    - mco_namespace_info.resources | default([]) | length > 0
+
+- name: "Wait for observability namespace deletion to complete"
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: "{{ observability_namespace_name }}"
+  register: mco_namespace_deleted
+  until: mco_namespace_deleted.resources | length == 0
+  retries: 30
+  delay: 5
+  failed_when: false
+  when:
+    - delete_observability_namespace | bool
+    - mco_namespace_info.resources | length > 0
+
+- name: "Multicluster observability uninstall complete"
+  ansible.builtin.debug:
+    msg: "Multicluster observability feature has been uninstalled from ACM."
+
 - name: "Check if ACM operator namespace exists (preclean)"
   kubernetes.core.k8s_info:
     api_version: v1
@@ -440,9 +554,17 @@
     state: absent
   when: delete_operator_namespace | bool
 
+- name: "Clear finalizers on ACM operator namespace (if Terminating)"
+  ansible.builtin.include_tasks: strip_namespace_finalizers.yaml
+  vars:
+    strip_namespace_name: "{{ acm_operator_subscription_namespace }}"
+  when: delete_operator_namespace | bool
+
 - name: "Note on namespace deletion (no wait — Terminating often blocks completion)"
   ansible.builtin.debug:
-    msg: "Namespace {{ acm_operator_subscription_namespace }} delete was requested; the play does not wait for removal. If it stays Terminating, clear finalizers or remove blocking resources manually."
+    msg: >-
+      Namespace {{ acm_operator_subscription_namespace }} delete was requested.
+      Finalizers were cleared when strip_namespace_finalizers_on_delete is true; if still stuck, remove blocking resources or investigate.
   when: delete_operator_namespace | bool
 
 - name: "ACM uninstall finished"

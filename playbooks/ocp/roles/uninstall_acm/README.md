@@ -105,7 +105,10 @@ Or:
 | `delete_mce_namespace` | `true` | Delete **multicluster-engine** namespace |
 | `delete_acm_console_plugins` | `true` | Remove ACM/MCE console plugins |
 | `acm_console_plugin_names` | `["acm","mce"]` | Plugin names to remove |
-| `delete_operator_namespace` | `false` | Delete operator namespace |
+| `delete_operator_namespace` | `true` | Delete ACM operator namespace (`open-cluster-management`) |
+| `strip_namespace_finalizers_on_delete` | `true` | After each targeted namespace delete, patch `metadata.finalizers` to `[]` (helps **Terminating** namespaces) |
+| `delete_observability_namespace` | `false` | Delete **`open-cluster-management-observability`** in `full_uninstall` (after MCO CR removal) |
+| `observability_namespace_name` | `open-cluster-management-observability` | Observability namespace to delete when `delete_observability_namespace` is true |
 | `preclean_ocm_namespace_before_delete` | `true` | Preclean OCM namespace before delete |
 | `ocm_namespace_preclean_passes` | `3` | OCM preclean passes |
 | `delete_target_apiservices` | *(list)* | APIServices to delete |
@@ -118,4 +121,4 @@ Or:
 
 - **`multiclusterhub_cr_only`** does not remove MCO; with **`cleanup_managed_clusters: true`** it still **detaches ManagedClusters before MCH**. Use **full** or **main** if you need MCO removed.
 - The role tolerates missing resources.
-- **`delete_operator_namespace: true`** does not wait for namespace termination; clear finalizers if stuck **Terminating**.
+- **`delete_operator_namespace: true`** does not wait for namespace termination; with **`strip_namespace_finalizers_on_delete: true`** (default), the role patches **finalizers** on **multicluster-engine**, **observability** (if deleted), and **ACM** namespaces after delete requests.
