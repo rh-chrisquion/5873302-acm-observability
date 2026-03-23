@@ -1,0 +1,4 @@
+---
+# Single Git HTTPS URL for all Argo CD Applications, AppProject sourceRepos, and the repo Secret.
+# Override via group_vars, extra vars, or vars_files (higher precedence than this default).
+gitops_repo_url: "https://gitlab.com/cquion/testing.git"

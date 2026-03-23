@@ -11,3 +11,4 @@
   roles:
     - role: configure_argo
     - role: apps_install_acm
+    - role: apps_install_mco

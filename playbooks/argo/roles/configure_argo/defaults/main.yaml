@@ -1,25 +1,20 @@
 ---
-# defaults/main.yaml
+# defaults/main.yaml (gitops_repo_url comes from role dependency arg_gitops_repo)
 repo_name: gitops-install-acm
 
-# GitLab HTTPS (use personal access token via vault_repo_password in secrets.yml)
-repo_url: "https://gitlab.com/cquion/testing.git"
+# Backwards-compatible alias for templates/docs; same as gitops_repo_url
+repo_url: "{{ gitops_repo_url }}"
 
-# Repo URL used by the ACM Application (apps_install_acm); must be in sourceRepos for project 'acm'
-acm_repo_url: "https://gitlab.com/cquion/testing.git"
-
-# All repo URLs permitted in the AppProject (must include any repo used by Applications in this project)
-project_source_repos: "{{ [repo_url, acm_repo_url] | unique | list }}"
+# AppProject sourceRepos: primary repo + any extra (e.g. second catalog); all must match Application repoURLs
+project_source_repos_extra: []
+project_source_repos: "{{ ([gitops_repo_url] + (project_source_repos_extra | default([]))) | unique | list }}"
 
 # Username for GitLab PAT auth (often "git" or "oauth2"; set in secrets.yml as vault_repo_username to override)
 repo_username: "git"
 argocd_project: acm
 
-# defaults/main.yaml
 app_project_name: acm
 app_project_description: "AppProject for Advanced Cluster Management"
 
-# Argo CD RBAC: user(s) or group(s) to grant role:admin (full control).
-# Set to the current user (e.g. from oc whoami) or an SSO group. Leave empty to skip.
 argocd_namespace: openshift-gitops
 argocd_rbac_admins: ["system:authenticated"]  # RHDP default. Set to the group(s) you want.
