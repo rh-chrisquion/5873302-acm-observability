@@ -1,0 +1,24 @@
+---
+# Run while ClusterServiceVersions still exist. Builds mce_crds_to_delete for mce_delete_mce_operator_crds.yaml.
+# CRDs are cluster-scoped; names come from CSV spec.customresourcedefinitions.owned in multicluster-engine.
+
+- name: "Discover CRD names from MCE ClusterServiceVersions (oc + jq)"
+  ansible.builtin.shell: |
+    set -e
+    oc get csv -n "{{ mce_operator_subscription_namespace }}" -o json 2>/dev/null | \
+      jq -r '.items[]? | .spec.customresourcedefinitions.owned[]?.name? // empty' | sort -u
+  args:
+    executable: /bin/bash
+  register: mce_crd_names_cmd
+  changed_when: false
+  failed_when: false
+  when:
+    - delete_mce_operator | bool
+    - delete_mce_operator_crds | default(true) | bool
+
+- name: "Merge discovered MCE CRD names with target_delete_mce_crds_extra"
+  ansible.builtin.set_fact:
+    mce_crds_to_delete: "{{ (mce_crd_names_cmd.stdout_lines | default([]) | reject('equalto', '') | list) | union(target_delete_mce_crds_extra | default([])) | unique | list }}"
+  when:
+    - delete_mce_operator | bool
+    - delete_mce_operator_crds | default(true) | bool

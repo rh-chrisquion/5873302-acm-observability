@@ -12,6 +12,11 @@
   ansible.builtin.include_tasks: main.yaml
   when: acm_uninstall_mode | default('full') == 'full'
 
+# RH ACM prerequisites: Discovery + AgentServiceConfig before MultiClusterHub removal
+- name: "Uninstall prerequisites per Red Hat documentation (Discovery, AgentServiceConfig)"
+  ansible.builtin.include_tasks: uninstall_prerequisites.yaml
+  when: acm_uninstall_prerequisites_per_doc | default(true) | bool
+
 - name: "Check if MultiClusterHub exists"
   kubernetes.core.k8s_info:
     api_version: operator.open-cluster-management.io/v1
@@ -21,10 +26,11 @@
   register: multiclusterhub_info
   ignore_errors: true
 
-- name: "Disable self-management on MultiClusterHub"
+# RH ACM 2.16 spec field: disableHubSelfManagement
+- name: "Disable hub self-management on MultiClusterHub before delete"
   kubernetes.core.k8s:
     state: present
-    definition: "{{ multiclusterhub_info.resources[0] | combine({'spec': (multiclusterhub_info.resources[0].spec | default({}) | combine({'disableSelfManagement': true}))}, recursive=true) }}"
+    definition: "{{ multiclusterhub_info.resources[0] | combine({'spec': (multiclusterhub_info.resources[0].spec | default({}) | combine({'disableHubSelfManagement': true}))}, recursive=true) }}"
   when: multiclusterhub_info.resources | length > 0
 
 - name: "Delete MultiClusterHub custom resource"
@@ -36,6 +42,21 @@
     state: absent
     delete_all: true
   when: multiclusterhub_info.resources | length > 0
+
+- name: "Wait for MultiClusterHub custom resource to be fully removed"
+  kubernetes.core.k8s_info:
+    api_version: operator.open-cluster-management.io/v1
+    kind: MultiClusterHub
+    name: "{{ acm_multiclusterhub_name }}"
+    namespace: "{{ acm_multiclusterhub_namespace }}"
+  register: mch_deletion_wait
+  until: mch_deletion_wait.resources | default([]) | length == 0
+  retries: "{{ multiclusterhub_deletion_retries | default(60) }}"
+  delay: "{{ multiclusterhub_deletion_delay | default(10) }}"
+  failed_when: false
+  when:
+    - wait_for_multiclusterhub_deletion | default(true) | bool
+    - multiclusterhub_info.resources | length > 0
 
 - name: "MultiClusterHub CR-only uninstall complete (operator remains)"
   ansible.builtin.debug:

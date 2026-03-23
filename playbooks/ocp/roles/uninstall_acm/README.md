@@ -1,10 +1,12 @@
 # Uninstall ACM
 
+**Artifact cleanup ([RH ACM 2.16 §1.11](https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.16/html-single/install/index#cleanup-artifacts)):** `full_uninstall.yaml` deletes the same cluster-scoped objects as the doc script, in the same order (`APIService` → Hive `ClusterImageSet` → `ClusterRole` → `CRD` → `MutatingWebhook` → `ValidatingWebhook`). The six documented CRD names live in `rh_acm_cleanup_artifact_crds_doc_2_16`; optional extras use `target_delete_acm_crds_extra`.
+
 The role splits work into:
 
 | Entry | File | What it does |
 |-------|------|----------------|
-| **Default / `tasks_from: main.yaml`** | `tasks/main.yaml` | When `cleanup_managed_clusters`: runs **`managed_clusters_detach.yaml`** first (KlusterletAddonConfig + **ManagedCluster** before **MultiClusterHub** in hub flows), then deletes **MultiClusterObservability** if present. |
+| **Default / `tasks_from: main.yaml`** | `tasks/main.yaml` | When `cleanup_managed_clusters`: **`managed_clusters_detach.yaml`**, then **`remove_mco_cr.yaml`** (optional Argo MCO Application + **MultiClusterObservability** CR + wait). Same MCO logic as the hub phase of **`full_uninstall`** (not repeated later). |
 | **Full hub + operator uninstall** | `tasks/full_uninstall.yaml` | **Imports `hub_uninstall.yaml` first** (MCO + detach when `full`, **MultiClusterHub** delete, optional CR-only `end_play`), then MCE/ACM operator teardown (Subscription, CSV, webhooks, namespaces, …). |
 | **Hub phase only** | `tasks/hub_uninstall.yaml` | Same hub steps as above **without** importing operator teardown. Use for **`multiclusterhub_cr_only`** or when you only want MCO/MCH work without `full_uninstall`. |
 
@@ -19,7 +21,7 @@ The role splits work into:
 
 ### Full uninstall (playbook)
 
-`full_uninstall.yaml` removes **Multicluster Engine (MCE) before the ACM operator**: `MultiClusterEngine` CR (with a wait), MCE **Subscription**, **CSV** (including any leftover CSVs in the namespace), **InstallPlans**, **OperatorGroups**, then precleans and deletes the **`multicluster-engine`** namespace (when enabled). Only then does it remove the ACM **Subscription**/CSV and continue with webhooks and the **`open-cluster-management`** namespace.
+`full_uninstall.yaml` removes **Multicluster Engine (MCE) before the ACM operator**: **`MultiClusterEngine` CR** (with a wait; gated only by `delete_multiclusterengine_cr`, not `delete_mce_operator`), then discovers CSV-owned **CRD** names in `multicluster-engine`, then MCE **Subscription**, **CSV**, **InstallPlans**, **OperatorGroups**, deletes **MCE CRDs** (discovered + `target_delete_mce_crds_extra`), then precleans and deletes the **`multicluster-engine`** namespace (when `delete_mce_operator`). Only then does it remove the ACM **Subscription**/CSV and continue with webhooks and the **`open-cluster-management`** namespace. CRDs are cluster-scoped; MCE CRD names come from **`ClusterServiceVersion`** `spec.customresourcedefinitions.owned` in that namespace (requires **jq** for gather).
 
 ```bash
 ansible-playbook playbooks/ocp/uninstall-acm.yaml
@@ -82,25 +84,28 @@ Or:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `acm_uninstall_mode` | `full` | Hub phase: `full` or `multiclusterhub_cr_only` (applies when using **`hub_uninstall.yaml`** or **`full_uninstall.yaml`**) |
-| `cleanup_managed_clusters` | `true` | In **main**: remove KlusterletAddonConfigs and **ManagedCluster** CRs (detach). Set `false` to skip. |
+| `cleanup_managed_clusters` | `true` | In **main** / hub: remove KlusterletAddonConfigs and **ManagedCluster** CRs (detach); **skips** `acm_local_cluster_managedcluster_name` (default `local-cluster`). Set `false` to skip. |
 | `acm_multiclusterhub_name` | `multiclusterhub` | MultiClusterHub CR name |
 | `acm_multiclusterhub_namespace` | `open-cluster-management` | MultiClusterHub namespace |
 | `mco_cr_name` | `observability` | MultiClusterObservability CR name |
 | `mco_cr_namespace` | `open-cluster-management` | MultiClusterObservability namespace |
-| `remove_argocd_application` | `false` | Set **`true`** to delete the Argo CD **Application** for MCO before removing the MCO CR (matches `apps_install_mco` / GitOps) |
+| `remove_argocd_application` | `true` | Delete the Argo CD **Application** for MCO if present (avoids GitOps recreating MCO). Set **`false`** if unused. |
 | `mco_argocd_app_name` | `mco-observability` | Argo CD Application name |
 | `mco_argocd_namespace` | `openshift-gitops` | Namespace of the Argo CD Application |
 | `acm_operator_subscription_name` | `advanced-cluster-management` | ACM operator Subscription |
 | `acm_operator_subscription_namespace` | `open-cluster-management` | Subscription namespace |
-| `wait_for_multiclusterhub_deletion` | `true` | (reserved) wait for MCH deletion |
+| `wait_for_multiclusterhub_deletion` | `true` | After deleting MultiClusterHub, poll until the CR is gone |
 | `multiclusterhub_deletion_retries` | `60` | MCH wait retries |
 | `multiclusterhub_deletion_delay` | `10` | MCH wait delay (seconds) |
-| `delete_operator_csv` | `true` | Delete ACM operator CSV |
+| `delete_operator_csv` | `true` | Delete ACM operator CSV from Subscription status |
+| `delete_acm_olm_leftovers` | `true` | After Subscription delete: remove **all** CSVs, **InstallPlans**, and **OperatorGroups** in the ACM namespace (full OLM cleanup) |
 | `mce_operator_subscription_name` | `multicluster-engine` | MCE Subscription |
 | `mce_operator_subscription_namespace` | `multicluster-engine` | MCE namespace |
-| `delete_mce_operator` | `true` | Remove MCE Subscription/CSV |
-| `delete_mce_operator_csv` | `true` | Delete MCE CSV |
-| `delete_multiclusterengine_cr` | `true` | Delete **MultiClusterEngine** CR first |
+| `delete_mce_operator` | `true` | Remove MCE Subscription/CSV/InstallPlan/OG/namespace (OLM teardown) |
+| `delete_mce_operator_csv` | `true` | Delete MCE CSVs in namespace (via `delete_olm_csvs_in_namespace`) |
+| `delete_mce_operator_crds` | `true` | After OLM teardown, delete CRDs from MCE CSV `owned` list + `target_delete_mce_crds_extra` (only when `delete_mce_operator` is true; needs **jq**) |
+| `target_delete_mce_crds_extra` | `[]` | Extra CRD names to delete after MCE operator removal |
+| `delete_multiclusterengine_cr` | `true` | Delete **MultiClusterEngine** CR(s) and wait — **independent** of `delete_mce_operator` |
 | `mce_cr_deletion_retries` | `60` | After `MultiClusterEngine` delete, poll until CRs are gone |
 | `mce_cr_deletion_delay` | `10` | Seconds between retries |
 | `preclean_mce_namespace_before_delete` | `true` | Preclean MCE namespace |
@@ -115,7 +120,7 @@ Or:
 | `ocm_namespace_aggressive_terminating_recovery` | `true` | After the delete request, retry loop: strip in-namespace finalizers + namespace finalizers (handles re-added finalizers) |
 | `ocm_namespace_terminating_recovery_attempts` | `12` | Retry count for the recovery loop |
 | `ocm_namespace_terminating_recovery_delay_seconds` | `15` | Sleep between retries |
-| `delete_observability_namespace` | `false` | Delete **`open-cluster-management-observability`** in `full_uninstall` (after MCO CR removal) |
+| `delete_observability_namespace` | `true` | Delete **`open-cluster-management-observability`** in `full_uninstall` (after MCO CR removal) |
 | `observability_namespace_name` | `open-cluster-management-observability` | Observability namespace to delete when `delete_observability_namespace` is true |
 | `preclean_ocm_namespace_before_delete` | `true` | Preclean OCM namespace before delete |
 | `ocm_namespace_preclean_passes` | `3` | OCM preclean passes |
@@ -123,8 +128,13 @@ Or:
 | `delete_target_clusterroles` | *(list)* | ClusterRoles to delete |
 | `target_delete_mutating_webhook_configurations` | *(list)* | Mutating webhooks |
 | `target_delete_validating_webhook_configurations` | *(list)* | Validating webhooks |
-| `target_delete_crd_artifacts` | *(list)* | Legacy CRD cleanup loop (names as in defaults) |
-| `target_delete_acm_crds` | `multiclusterroleassignments.rbac.open-cluster-management.io` | **CustomResourceDefinition** `metadata.name` values to delete (`oc delete crd …`). Extend or clear as needed. |
+| `acm_uninstall_prerequisites_per_doc` | `true` | Run Discovery + AgentServiceConfig cleanup before MultiClusterHub delete |
+| `cleanup_discoveryconfigs` / `cleanup_agent_service_configs` | `true` | Prerequisites `oc delete` commands |
+| `delete_acm_crds_after_operator_uninstall` | `true` | Run CRD cleanup; set **`false`** to leave CRDs (plain operator uninstall) |
+| `target_delete_crd_artifacts` | `[]` | Optional extra CRD names (real `metadata.name` only) |
+| `rh_acm_cleanup_artifact_crds_doc_2_16` | *6 CRDs* | Exact **`oc delete crd`** names from [RH ACM 2.16 — Cleaning up artifacts](https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.16/html-single/install/index#cleanup-artifacts) |
+| `target_delete_acm_crds_extra` | *1 CRD* | CRDs not in the published script; set **`[]`** to match the doc only |
+| `target_delete_acm_crds` | *merged* | Defaults to **`rh_acm_cleanup_artifact_crds_doc_2_16 + target_delete_acm_crds_extra`**; override to replace entirely |
 
 ## Notes
 

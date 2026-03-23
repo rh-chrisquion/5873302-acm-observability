@@ -1,0 +1,57 @@
+---
+# MultiClusterObservability teardown (+ optional Argo CD Application) — shared by main.yaml (hub) and not duplicated in full_uninstall.
+
+- name: "Check if ArgoCD Application for MCO exists"
+  kubernetes.core.k8s_info:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    name: "{{ mco_argocd_app_name }}"
+    namespace: "{{ mco_argocd_namespace }}"
+  register: mco_argocd_app_info
+  ignore_errors: true
+  when: remove_argocd_application | default(true) | bool
+
+- name: "Delete ArgoCD Application for MCO"
+  kubernetes.core.k8s:
+    api_version: argoproj.io/v1alpha1
+    kind: Application
+    name: "{{ mco_argocd_app_name }}"
+    namespace: "{{ mco_argocd_namespace }}"
+    state: absent
+  when: >-
+    (remove_argocd_application | default(true) | bool)
+    and (mco_argocd_app_info is defined)
+    and (mco_argocd_app_info.resources | default([]) | length > 0)
+
+- name: "Check if MultiClusterObservability custom resource exists"
+  kubernetes.core.k8s_info:
+    api_version: observability.open-cluster-management.io/v1beta2
+    kind: MultiClusterObservability
+    name: "{{ mco_cr_name }}"
+    namespace: "{{ mco_cr_namespace }}"
+  register: mco_cr_info
+  ignore_errors: true
+
+- name: "Delete MultiClusterObservability custom resource"
+  kubernetes.core.k8s:
+    api_version: observability.open-cluster-management.io/v1beta2
+    kind: MultiClusterObservability
+    name: "{{ mco_cr_name }}"
+    namespace: "{{ mco_cr_namespace }}"
+    state: absent
+  when: mco_cr_info.resources | default([]) | length > 0
+
+- name: "Wait for MultiClusterObservability to be fully deleted"
+  kubernetes.core.k8s_info:
+    api_version: observability.open-cluster-management.io/v1beta2
+    kind: MultiClusterObservability
+    name: "{{ mco_cr_name }}"
+    namespace: "{{ mco_cr_namespace }}"
+  register: mco_cr_deleted
+  until: mco_cr_deleted.resources | length == 0
+  retries: "{{ mco_deletion_retries }}"
+  delay: "{{ mco_deletion_delay }}"
+  failed_when: false
+  when:
+    - wait_for_mco_deletion | bool
+    - mco_cr_info.resources | default([]) | length > 0

@@ -1,0 +1,30 @@
+---
+# Delete all ClusterServiceVersions in a namespace (after Subscription removal). Replaces named-CSV + loop duplicate pattern.
+# Required vars: olm_csv_target_namespace
+# Optional: olm_csv_cleanup_enabled (default true), olm_delete_csvs (default true)
+
+- name: "List ClusterServiceVersions in operator namespace"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ olm_csv_target_namespace }}"
+  register: olm_csv_list
+  ignore_errors: true
+  failed_when: false
+  when: olm_csv_cleanup_enabled | default(true) | bool
+
+- name: "Delete ClusterServiceVersions in operator namespace"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ olm_csv_target_namespace }}"
+    state: absent
+  loop: "{{ olm_csv_list.resources | default([]) }}"
+  ignore_errors: true
+  failed_when: false
+  when:
+    - olm_csv_cleanup_enabled | default(true) | bool
+    - olm_delete_csvs | default(true) | bool
+    - olm_csv_list is defined
+    - olm_csv_list.resources | default([]) | length > 0

@@ -1,0 +1,14 @@
+---
+# RH ACM uninstall prerequisites (before MultiClusterHub): Discovery + AgentServiceConfig
+
+- name: "Remove cluster discovery configuration (DiscoveryConfig CRs, all namespaces)"
+  ansible.builtin.command: oc delete discoveryconfigs --all --all-namespaces --ignore-not-found=true
+  changed_when: true
+  failed_when: false
+  when: cleanup_discoveryconfigs | default(true) | bool
+
+- name: "Remove AgentServiceConfig (cluster-scoped)"
+  ansible.builtin.command: oc delete agentserviceconfig --all --ignore-not-found=true
+  changed_when: true
+  failed_when: false
+  when: cleanup_agent_service_configs | default(true) | bool

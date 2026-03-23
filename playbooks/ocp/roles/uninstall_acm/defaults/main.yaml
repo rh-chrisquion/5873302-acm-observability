@@ -22,8 +22,13 @@ mce_operator_subscription_namespace: "multicluster-engine"
 # Remove MCE Subscription and CSV after ACM uninstall (set false if MCE not installed separately)
 delete_mce_operator: true
 delete_mce_operator_csv: true
-# Delete MultiClusterEngine CR first (stops addons e.g. cluster-proxy before removing operator)
+# Delete MultiClusterEngine CR first (stops addons e.g. cluster-proxy before removing operator).
+# Independent of delete_mce_operator — set false only to skip removing the MultiClusterEngine CR.
 delete_multiclusterengine_cr: true
+# After MCE operator removal: delete CRDs listed on CSV spec.customresourcedefinitions.owned (plus target_delete_mce_crds_extra). Only when delete_mce_operator is true (gather requires CSVs). Requires jq on the control host.
+delete_mce_operator_crds: true
+# Extra CRD metadata.name values to remove after MCE operator teardown (merged with CSV discovery)
+target_delete_mce_crds_extra: []
 # Wait loop after MultiClusterEngine CR delete (full_uninstall.yaml)
 mce_cr_deletion_retries: 60
 mce_cr_deletion_delay: 10
@@ -38,7 +43,7 @@ acm_console_plugin_names:
   - "acm"
   - "mce"
 
-# Wait for MultiClusterHub deletion to complete
+# After oc delete MultiClusterHub, poll until gone (uninstall can take a long time)
 wait_for_multiclusterhub_deletion: true
 
 # Maximum retries when waiting for MultiClusterHub deletion
@@ -53,8 +58,9 @@ mco_cr_name: "observability"
 # Namespace where MultiClusterObservability CR is installed
 mco_cr_namespace: "open-cluster-management"
 
-# If MCO is managed by Argo CD Application, remove it before deleting MCO CR (avoids GitOps recreating it)
-remove_argocd_application: false
+# If MCO is managed by Argo CD Application, remove it before deleting MCO CR (avoids GitOps recreating it).
+# Default true: no-op if the Application does not exist; set false if you use a different GitOps flow.
+remove_argocd_application: true
 mco_argocd_app_name: "mco-observability"
 mco_argocd_namespace: "openshift-gitops"
 
@@ -69,6 +75,9 @@ mco_deletion_delay: 10
 
 # Delete the operator CSV after uninstalling
 delete_operator_csv: true
+
+# After ACM Subscription delete: remove remaining CSVs / InstallPlans / OperatorGroups in the ACM namespace (mirrors MCE cleanup)
+delete_acm_olm_leftovers: true
 
 # Delete the operator namespace after uninstalling
 delete_operator_namespace: true
@@ -99,6 +108,15 @@ ocm_namespace_preclean_passes: 3
 # Detach managed clusters: delete KlusterletAddonConfig then ManagedCluster (tasks/main.yaml)
 cleanup_managed_clusters: true
 
+# RH ACM doc: do not detach the hub self-managed ManagedCluster (default name local-cluster)
+acm_local_cluster_managedcluster_name: "local-cluster"
+managedcluster_detach_skip_names: "{{ [acm_local_cluster_managedcluster_name | default('local-cluster')] }}"
+
+# RH ACM 2.16 — before MultiClusterHub: Discovery + AgentServiceConfig
+acm_uninstall_prerequisites_per_doc: true
+cleanup_discoveryconfigs: true
+cleanup_agent_service_configs: true
+
 # Clean up ACM-related API services
 delete_target_apiservices: ["v1.admission.cluster.open-cluster-management.io", "v1.admission.work.open-cluster-management.io"]
 
@@ -111,9 +129,25 @@ target_delete_mutating_webhook_configurations: ["ocm-mutating-webhook", "managed
 # Clean up ACM-related ValidatingWebhookConfigurations
 target_delete_validating_webhook_configurations: ["channels.apps.open.cluster.management.webhook.validator", "application-webhook-validator", "multiclusterhub-operator-validating-webhook", "ocm-validating-webhook", "multicluster-observability-operator", "multiclusterengines.multicluster.openshift.io"]
 
-# Clean up CRD artifacts
-target_delete_crd_artifacts: ["open-cluster-management:cert-policy-controller", "open-cluster-management:cluster-manager-admin", "open-cluster-management:config-policy-controller", "open-cluster-management:endpoint-observability-operator", "open-cluster-management:governance-policy-framework", "open-cluster-management:governance-policy-framework-kube-rbac-proxy", "multiclusterengines.multicluster.openshift.io-v1-admin", "multiclusterengines.multicluster.openshift.io-v1-crdview", "multiclusterengines.multicluster.openshift.io-v1-edit", "multiclusterengines.multicluster.openshift.io-v1-view", "open-cluster-management:addons:application-manager", "open-cluster-management:admin-aggregate", "open-cluster-management:cert-policy-controller-hub", "open-cluster-management:cluster-manager-admin-aggregate", "open-cluster-management:config-policy-controller-hub", "open-cluster-management:edit-aggregate", "open-cluster-management:policy-framework-hub", "open-cluster-management:view-aggregate"]
+# Optional extra CRD names (must be real CRD metadata.name values). Usually leave empty.
+target_delete_crd_artifacts: []
 
-# CustomResourceDefinitions to delete (full CRD name as in `oc get crd`, e.g. multiclusterroleassignments.rbac.open-cluster-management.io)
-target_delete_acm_crds:
+# Delete CRD resources after operator teardown (RH doc §1.11 — reinstall / older-version prep). Set false to leave CRDs.
+delete_acm_crds_after_operator_uninstall: true
+
+# Exact `oc delete crd …` names from RH ACM 2.16 — Cleaning up artifacts (do not reorder):
+# https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.16/html-single/install/index#cleanup-artifacts
+rh_acm_cleanup_artifact_crds_doc_2_16:
+  - klusterletaddonconfigs.agent.open-cluster-management.io
+  - placementbindings.policy.open-cluster-management.io
+  - policies.policy.open-cluster-management.io
+  - userpreferences.console.open-cluster-management.io
+  - discoveredclusters.discovery.open-cluster-management.io
+  - discoveryconfigs.discovery.open-cluster-management.io
+
+# CRDs not in the published script; set [] to match the doc exactly
+target_delete_acm_crds_extra:
   - multiclusterroleassignments.rbac.open-cluster-management.io
+
+# Effective list for the CRD delete task (override `target_delete_acm_crds` in inventory to replace entirely)
+target_delete_acm_crds: "{{ rh_acm_cleanup_artifact_crds_doc_2_16 + target_delete_acm_crds_extra }}"

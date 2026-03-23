@@ -9,6 +9,11 @@
   ignore_errors: true
   failed_when: false
 
+# RH ACM doc: detach imports; hub self-managed ManagedCluster (default local-cluster) is skipped
+- name: "Build ManagedCluster list excluding skip names"
+  ansible.builtin.set_fact:
+    managed_clusters_to_detach: "{{ managed_clusters.resources | default([]) | rejectattr('metadata.name', 'in', managedcluster_detach_skip_names | default(['local-cluster'])) | list }}"
+
 # KlusterletAddonConfig: remove before ManagedCluster
 - name: "Delete KlusterletAddonConfig for each managed cluster namespace"
   kubernetes.core.k8s:
@@ -17,10 +22,10 @@
     name: "{{ item.metadata.name }}"
     namespace: "{{ item.metadata.name }}"
     state: absent
-  loop: "{{ managed_clusters.resources | default([]) }}"
+  loop: "{{ managed_clusters_to_detach | default([]) }}"
   when:
-    - managed_clusters.resources is defined
-    - managed_clusters.resources | length > 0
+    - managed_clusters_to_detach is defined
+    - managed_clusters_to_detach | length > 0
   ignore_errors: true
   failed_when: false
 
@@ -51,8 +56,8 @@
     kind: ManagedCluster
     name: "{{ item.metadata.name }}"
     state: absent
-  loop: "{{ managed_clusters.resources | default([]) }}"
+  loop: "{{ managed_clusters_to_detach | default([]) }}"
   when:
-    - managed_clusters.resources is defined
-    - managed_clusters.resources | length > 0
+    - managed_clusters_to_detach is defined
+    - managed_clusters_to_detach | length > 0
   ignore_errors: true

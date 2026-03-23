@@ -1,0 +1,16 @@
+---
+# After Subscription/CSV/InstallPlan/OperatorGroup removal — delete CRDs gathered in mce_gather_csv_owned_crds.yaml
+
+- name: "Delete MCE operator CustomResourceDefinitions (CSV-owned + extras)"
+  kubernetes.core.k8s:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ mce_crds_to_delete | default([]) }}"
+  ignore_errors: true
+  failed_when: false
+  when:
+    - delete_mce_operator | bool
+    - delete_mce_operator_crds | default(true) | bool
+    - (mce_crds_to_delete | default([])) | length > 0

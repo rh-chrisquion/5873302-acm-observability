@@ -1,25 +1,10 @@
 ---
-# Basic hub prep: detach managed clusters first, then remove MultiClusterObservability CR.
+# Basic hub prep: detach managed clusters first, then remove MultiClusterObservability (and optional Argo MCO app).
 # Order: ManagedClusters before MultiClusterHub (see hub_uninstall / managed_clusters_detach).
 
 - name: "Detach managed clusters before observability teardown"
   ansible.builtin.include_tasks: managed_clusters_detach.yaml
   when: cleanup_managed_clusters | bool
 
-- name: "Check if MultiClusterObservability custom resource exists"
-  kubernetes.core.k8s_info:
-    api_version: observability.open-cluster-management.io/v1beta2
-    kind: MultiClusterObservability
-    name: "{{ mco_cr_name }}"
-    namespace: "{{ mco_cr_namespace }}"
-  register: mco_cr_info
-  ignore_errors: true
-
-- name: "Delete MultiClusterObservability custom resource"
-  kubernetes.core.k8s:
-    api_version: observability.open-cluster-management.io/v1beta2
-    kind: MultiClusterObservability
-    name: "{{ mco_cr_name }}"
-    namespace: "{{ mco_cr_namespace }}"
-    state: absent
-  when: mco_cr_info.resources | default([]) | length > 0
+- name: "Remove GitOps MCO Application (if any) and MultiClusterObservability CR"
+  ansible.builtin.include_tasks: remove_mco_cr.yaml

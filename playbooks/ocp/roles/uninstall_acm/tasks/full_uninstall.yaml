@@ -12,9 +12,7 @@
   register: multiclusterengine_crs
   ignore_errors: true
   failed_when: false
-  when:
-    - delete_mce_operator | bool
-    - delete_multiclusterengine_cr | default(true) | bool
+  when: delete_multiclusterengine_cr | default(true) | bool
 
 - name: "Delete MultiClusterEngine custom resources (releases cluster-proxy-addon and other MCE workloads)"
   kubernetes.core.k8s:
@@ -26,8 +24,8 @@
   ignore_errors: true
   failed_when: false
   when:
-    - delete_mce_operator | bool
     - delete_multiclusterengine_cr | default(true) | bool
+    - multiclusterengine_crs is defined
     - multiclusterengine_crs.resources | default([]) | length > 0
 
 - name: "Wait for MultiClusterEngine CRs to be removed from the API"
@@ -40,9 +38,12 @@
   delay: "{{ mce_cr_deletion_delay | default(10) }}"
   failed_when: false
   when:
-    - delete_mce_operator | bool
     - delete_multiclusterengine_cr | default(true) | bool
+    - multiclusterengine_crs is defined
     - multiclusterengine_crs.resources | default([]) | length > 0
+
+- name: "Discover CRD names from MCE ClusterServiceVersions (before Subscription/CSV removal)"
+  ansible.builtin.include_tasks: mce_gather_csv_owned_crds.yaml
 
 - name: "Check if Multicluster Engine operator Subscription exists"
   kubernetes.core.k8s_info:
@@ -53,14 +54,6 @@
   register: mce_subscription_info
   ignore_errors: true
   when: delete_mce_operator | bool
-
-- name: "Get current CSV from Multicluster Engine Subscription"
-  ansible.builtin.set_fact:
-    mce_current_csv: "{{ mce_subscription_info.resources[0].status.currentCSV }}"
-  when:
-    - delete_mce_operator | bool
-    - mce_subscription_info.resources | default([]) | length > 0
-    - mce_subscription_info.resources[0].status.currentCSV is defined
 
 - name: "Delete Multicluster Engine operator Subscription"
   kubernetes.core.k8s:
@@ -88,43 +81,12 @@
     - delete_mce_operator | bool
     - mce_subscription_info.resources | default([]) | length > 0
 
-- name: "Delete Multicluster Engine operator CSV (from Subscription status)"
-  kubernetes.core.k8s:
-    api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    name: "{{ mce_current_csv }}"
-    namespace: "{{ mce_operator_subscription_namespace }}"
-    state: absent
-  ignore_errors: true
-  when:
-    - delete_mce_operator | bool
-    - delete_mce_operator_csv | bool
-    - mce_current_csv is defined
-
-- name: "List all ClusterServiceVersions in multicluster-engine namespace"
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    namespace: "{{ mce_operator_subscription_namespace }}"
-  register: mce_all_csvs
-  ignore_errors: true
-  failed_when: false
-  when: delete_mce_operator | bool
-
-- name: "Delete any remaining ClusterServiceVersions in multicluster-engine namespace"
-  kubernetes.core.k8s:
-    api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    name: "{{ item.metadata.name }}"
-    namespace: "{{ mce_operator_subscription_namespace }}"
-    state: absent
-  loop: "{{ mce_all_csvs.resources | default([]) }}"
-  ignore_errors: true
-  failed_when: false
-  when:
-    - delete_mce_operator | bool
-    - delete_mce_operator_csv | bool
-    - mce_all_csvs.resources | default([]) | length > 0
+- name: "Delete Multicluster Engine ClusterServiceVersions in namespace"
+  ansible.builtin.include_tasks: delete_olm_csvs_in_namespace.yaml
+  vars:
+    olm_csv_target_namespace: "{{ mce_operator_subscription_namespace }}"
+    olm_csv_cleanup_enabled: "{{ delete_mce_operator | bool }}"
+    olm_delete_csvs: "{{ delete_mce_operator_csv | default(true) | bool }}"
 
 - name: "List InstallPlans in multicluster-engine namespace"
   kubernetes.core.k8s_info:
@@ -173,6 +135,9 @@
   when:
     - delete_mce_operator | bool
     - mce_operatorgroups.resources | default([]) | length > 0
+
+- name: "Delete MCE operator CRDs (CSV-owned names gathered earlier + extras)"
+  ansible.builtin.include_tasks: mce_delete_mce_operator_crds.yaml
 
 - name: "Check if multicluster-engine namespace exists (MCE preclean)"
   kubernetes.core.k8s_info:
@@ -248,13 +213,6 @@
   register: acm_subscription_info
   ignore_errors: true
 
-- name: "Get current CSV from ACM Subscription"
-  ansible.builtin.set_fact:
-    acm_current_csv: "{{ acm_subscription_info.resources[0].status.currentCSV }}"
-  when:
-    - acm_subscription_info.resources | length > 0
-    - acm_subscription_info.resources[0].status.currentCSV is defined
-
 - name: "Delete ACM operator Subscription"
   kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
@@ -277,16 +235,60 @@
   failed_when: false
   when: acm_subscription_info.resources | length > 0
 
-- name: "Delete ACM operator CSV"
+- name: "Delete ACM ClusterServiceVersions in operator namespace"
+  ansible.builtin.include_tasks: delete_olm_csvs_in_namespace.yaml
+  vars:
+    olm_csv_target_namespace: "{{ acm_operator_subscription_namespace }}"
+    olm_csv_cleanup_enabled: "{{ delete_acm_olm_leftovers | default(true) | bool }}"
+    olm_delete_csvs: "{{ delete_operator_csv | default(true) | bool }}"
+
+- name: "List InstallPlans in ACM operator namespace"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: "{{ acm_operator_subscription_namespace }}"
+  register: acm_installplans
+  ignore_errors: true
+  failed_when: false
+  when: delete_acm_olm_leftovers | default(true) | bool
+
+- name: "Delete InstallPlans in ACM operator namespace"
   kubernetes.core.k8s:
     api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    name: "{{ acm_current_csv }}"
+    kind: InstallPlan
+    name: "{{ item.metadata.name }}"
     namespace: "{{ acm_operator_subscription_namespace }}"
     state: absent
+  loop: "{{ acm_installplans.resources | default([]) }}"
+  ignore_errors: true
+  failed_when: false
   when:
-    - acm_current_csv is defined
-    - delete_operator_csv | default(true) | bool
+    - delete_acm_olm_leftovers | default(true) | bool
+    - acm_installplans.resources | default([]) | length > 0
+
+- name: "List OperatorGroups in ACM operator namespace"
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1
+    kind: OperatorGroup
+    namespace: "{{ acm_operator_subscription_namespace }}"
+  register: acm_operatorgroups
+  ignore_errors: true
+  failed_when: false
+  when: delete_acm_olm_leftovers | default(true) | bool
+
+- name: "Delete OperatorGroups in ACM operator namespace"
+  kubernetes.core.k8s:
+    api_version: operators.coreos.com/v1
+    kind: OperatorGroup
+    name: "{{ item.metadata.name }}"
+    namespace: "{{ acm_operator_subscription_namespace }}"
+    state: absent
+  loop: "{{ acm_operatorgroups.resources | default([]) }}"
+  ignore_errors: true
+  failed_when: false
+  when:
+    - delete_acm_olm_leftovers | default(true) | bool
+    - acm_operatorgroups.resources | default([]) | length > 0
 
 # Stops console from loading dead ACM/MCE plugin endpoints (e.g. Failed to get manifest from /api/plugins/acm/)
 - name: "Delete ACM/MCE ConsolePlugin resources"
@@ -323,6 +325,9 @@
 
 # ManagedCluster / KlusterletAddonConfig removal: tasks/managed_clusters_detach.yaml (before MCH via hub_uninstall / main)
 
+# --- RH ACM 2.16 §1.11.1 "Cleaning up artifacts" (same cluster-scoped resources / order as doc script) ---
+# Ref: https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.16/html-single/install/index#cleanup-artifacts
+
 - name: "Delete API services resources"
   kubernetes.core.k8s:
     api_version: apiregistration.k8s.io/v1
@@ -334,10 +339,11 @@
   failed_when: false
   when: delete_target_apiservices is defined and delete_target_apiservices | length > 0
 
+# Hive ClusterImageSet (cluster-scoped); must use hive.openshift.io/v1
 - name: "Delete all ClusterImageSet resources"
   kubernetes.core.k8s:
-    api_version: apiregistration.k8s.io/v1
-    kind: clusterimageset
+    api_version: hive.openshift.io/v1
+    kind: ClusterImageSet
     state: absent
     delete_all: true
   ignore_errors: true
@@ -354,17 +360,6 @@
   failed_when: false
   when: delete_target_clusterroles is defined and delete_target_clusterroles | length > 0
 
-- name: "Delete ACM-related MutatingWebhookConfigurations"
-  kubernetes.core.k8s:
-    api_version: admissionregistration.k8s.io/v1
-    kind: MutatingWebhookConfiguration
-    name: "{{ item }}"
-    state: absent
-  loop: "{{ target_delete_mutating_webhook_configurations | default([]) }}"
-  ignore_errors: true
-  failed_when: false
-  when: target_delete_mutating_webhook_configurations is defined and target_delete_mutating_webhook_configurations | length > 0
-
 - name: "Delete CRD artifacts"
   kubernetes.core.k8s:
     api_version: apiextensions.k8s.io/v1
@@ -376,7 +371,7 @@
   failed_when: false
   when: target_delete_crd_artifacts is defined and target_delete_crd_artifacts | length > 0
 
-- name: "Delete ACM CustomResourceDefinitions (by API resource name)"
+- name: "Delete ACM CustomResourceDefinitions (doc §1.11.1 oc delete crd …)"
   kubernetes.core.k8s:
     api_version: apiextensions.k8s.io/v1
     kind: CustomResourceDefinition
@@ -385,7 +380,20 @@
   loop: "{{ target_delete_acm_crds | default([]) }}"
   ignore_errors: true
   failed_when: false
-  when: target_delete_acm_crds | default([]) | length > 0
+  when:
+    - delete_acm_crds_after_operator_uninstall | default(true) | bool
+    - target_delete_acm_crds | default([]) | length > 0
+
+- name: "Delete ACM-related MutatingWebhookConfigurations"
+  kubernetes.core.k8s:
+    api_version: admissionregistration.k8s.io/v1
+    kind: MutatingWebhookConfiguration
+    name: "{{ item }}"
+    state: absent
+  loop: "{{ target_delete_mutating_webhook_configurations | default([]) }}"
+  ignore_errors: true
+  failed_when: false
+  when: target_delete_mutating_webhook_configurations is defined and target_delete_mutating_webhook_configurations | length > 0
 
 - name: "Delete ACM-related ValidatingWebhookConfigurations"
   kubernetes.core.k8s:
@@ -398,62 +406,7 @@
   failed_when: false
   when: target_delete_validating_webhook_configurations is defined and target_delete_validating_webhook_configurations | length > 0
 
-# Remove ArgoCD Application for MCO first so GitOps does not recreate observability
-- name: "Check if ArgoCD Application for MCO exists"
-  kubernetes.core.k8s_info:
-    api_version: argoproj.io/v1alpha1
-    kind: Application
-    name: "{{ mco_argocd_app_name }}"
-    namespace: "{{ mco_argocd_namespace }}"
-  register: mco_argocd_app_info
-  ignore_errors: true
-  when: remove_argocd_application | default(false) | bool
-
-- name: "Delete ArgoCD Application for MCO"
-  kubernetes.core.k8s:
-    api_version: argoproj.io/v1alpha1
-    kind: Application
-    name: "{{ mco_argocd_app_name }}"
-    namespace: "{{ mco_argocd_namespace }}"
-    state: absent
-  when: >-
-    (remove_argocd_application | default(false) | bool)
-    and (mco_argocd_app_info is defined)
-    and (mco_argocd_app_info.resources | default([]) | length > 0)
-
-# Check if MultiClusterObservability CR exists
-- name: "Check if MultiClusterObservability custom resource exists"
-  kubernetes.core.k8s_info:
-    api_version: observability.open-cluster-management.io/v1beta2
-    kind: MultiClusterObservability
-    name: "{{ mco_cr_name }}"
-    namespace: "{{ mco_cr_namespace }}"
-  register: mco_cr_info
-  ignore_errors: true
-
-- name: "Delete MultiClusterObservability custom resource"
-  kubernetes.core.k8s:
-    api_version: observability.open-cluster-management.io/v1beta2
-    kind: MultiClusterObservability
-    name: "{{ mco_cr_name }}"
-    namespace: "{{ mco_cr_namespace }}"
-    state: absent
-  when: mco_cr_info.resources | length > 0
-
-- name: "Wait for MultiClusterObservability to be fully deleted"
-  kubernetes.core.k8s_info:
-    api_version: observability.open-cluster-management.io/v1beta2
-    kind: MultiClusterObservability
-    name: "{{ mco_cr_name }}"
-    namespace: "{{ mco_cr_namespace }}"
-  register: mco_cr_deleted
-  until: mco_cr_deleted.resources | length == 0
-  retries: "{{ mco_deletion_retries }}"
-  delay: "{{ mco_deletion_delay }}"
-  failed_when: false
-  when:
-    - wait_for_mco_deletion | bool
-    - mco_cr_info.resources | length > 0
+# Argo MCO Application + MultiClusterObservability CR: hub phase (main.yaml → remove_mco_cr.yaml)
 
 # Optionally delete the observability namespace (removes Thanos, Grafana, Alertmanager, etc.)
 - name: "Check if observability namespace exists"
