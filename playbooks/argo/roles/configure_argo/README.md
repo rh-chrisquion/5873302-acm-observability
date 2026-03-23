@@ -10,7 +10,7 @@ Authentication uses **HTTPS and a GitLab personal access token** (no SSH keys).
 2. In your vault-encrypted `secrets.yml` (e.g. `playbooks/argo/secrets.yml`), define:
    - `vault_repo_password`: your GitLab personal access token
    - `vault_repo_username`: (optional) username for auth; default is `git`
-3. Ensure `repo_url` in role defaults (or group_vars) uses HTTPS, e.g. `https://gitlab.com/group/gitops-install-acm.git`.
+3. Set **`gitops_repo_url`** (single canonical URL) in `roles/arg_gitops_repo/defaults/main.yaml`, or override via `group_vars`, `-e`/`--extra-vars`, or copy `vars/gitops_repo.yml.example` to `vars/gitops_repo.yml` and add it to your playbook `vars_files`. Use HTTPS, e.g. `https://gitlab.com/group/gitops-install-acm.git`.
 
 Example minimal `secrets.yml` (encrypt with `ansible-vault encrypt secrets.yml`):
 
@@ -23,8 +23,11 @@ vault_repo_password: "glpat-xxxxxxxxxxxxxxxxxxxx"
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `gitops_repo_url` | (see `arg_gitops_repo` role) | **Single Git HTTPS URL** for Applications, AppProject `sourceRepos`, and repo Secret. |
 | `repo_name` | `gitops-install-acm` | Name used for the repository secret. |
-| `repo_url` | `https://gitlab.com/...` | Git repo URL (HTTPS for PAT auth). |
+| `repo_url` | `{{ gitops_repo_url }}` | Alias for backwards compatibility. |
+| `project_source_repos_extra` | `[]` | Additional URLs allowed in AppProject (rare). |
+| `project_source_repos` | derived | `gitops_repo_url` + extras, for AppProject. |
 | `repo_username` | `git` | Default username for repo auth (override with `vault_repo_username`). |
 | `argocd_project` | `acm` | AppProject to associate with the repo. |
 | `app_project_name` | `acm` | AppProject name. |

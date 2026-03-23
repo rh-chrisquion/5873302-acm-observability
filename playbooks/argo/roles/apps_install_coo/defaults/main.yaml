@@ -5,8 +5,8 @@ coo_argocd_namespace: "openshift-gitops"
 coo_argocd_project: "default"
 coo_argocd_sync_policy: "Automatic"
 
-# Git Repository Configuration
-coo_git_repo_url: "https://github.com/SkylarScaling/gitops-install-coo.git"
+# Git repo URL (HTTPS); from arg_gitops_repo / gitops_repo_url
+coo_git_repo_url: "{{ gitops_repo_url }}"
 coo_git_repo_path: "coo"
 coo_git_repo_revision: "main"
 

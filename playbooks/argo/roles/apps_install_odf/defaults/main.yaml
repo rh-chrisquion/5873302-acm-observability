@@ -5,9 +5,8 @@ odf_argocd_namespace: "openshift-gitops"
 odf_argocd_project: "default"
 odf_argocd_sync_policy: "Automatic"
 
-# Git Repository Configuration
-# Update this to match your actual repository housing the ODF manifests
-odf_git_repo_url: "https://github.com/SkylarScaling/gitops-install-odf.git"
+# Git repo URL (HTTPS); from arg_gitops_repo / gitops_repo_url
+odf_git_repo_url: "{{ gitops_repo_url }}"
 odf_git_repo_path: "odf"
 odf_git_repo_revision: "main"
 

@@ -1,0 +1,6 @@
+---
+# This role only provides shared defaults (gitops_repo_url). No operational tasks.
+- name: Shared GitOps repo defaults (noop)
+  ansible.builtin.debug:
+    msg: arg_gitops_repo
+  when: false

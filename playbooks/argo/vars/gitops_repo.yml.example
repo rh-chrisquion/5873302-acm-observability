@@ -1,0 +1,3 @@
+---
+# Copy to gitops_repo.yml, add that file to playbook vars_files, and adjust:
+gitops_repo_url: "https://gitlab.com/yourorg/your-monorepo.git"

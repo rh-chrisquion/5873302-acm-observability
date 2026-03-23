@@ -5,8 +5,8 @@ acm_argocd_namespace: "openshift-gitops"
 acm_argocd_project: "acm"
 acm_argocd_sync_policy: "Automatic"
 
-# Git Repository Configuration (HTTPS for GitLab PAT auth; must match repo_url in configure_argo)
-acm_git_repo_url: "https://gitlab.com/cquion/testing.git"
+# Git repo URL (HTTPS); from arg_gitops_repo / gitops_repo_url
+acm_git_repo_url: "{{ gitops_repo_url }}"
 acm_git_repo_path: "machine-configuration"
 acm_git_repo_revision: "main"
 
