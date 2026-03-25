@@ -1,0 +1,13 @@
+---
+- name: Create Argo CD ApplicationSets (Git directory generator)
+  hosts: localhost
+  vars_files:
+    - ../group_vars/all.yaml
+    - secrets.yml
+  connection: local
+  gather_facts: false
+  vars:
+    ansible_python_interpreter: /Users/chrisquion/5873302-acm-observability/ansible-k8s-venv/.ansible-k8s/bin/python3
+  roles:
+    - role: configure_argo
+    - role: applicationsets_git

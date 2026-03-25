@@ -1,0 +1,38 @@
+---
+# ApplicationSet metadata
+applicationset_name: gitops-generated-apps
+applicationset_namespace: openshift-gitops
+
+# AppProject for generated Applications (must allow gitops_repo_url in sourceRepos)
+applicationset_project: acm
+
+applicationset_repo_revision: main
+
+# Git directory generator: each matching path under the repo becomes one Application.
+# Each item is a directory rule (path supports globs, e.g. apps/*). See Argo ApplicationSet Git generator docs.
+applicationset_git_directories:
+  - path: acm
+  - path: mco
+
+# Destination for generated Applications (hub in-cluster default)
+applicationset_destination_server: https://kubernetes.default.svc
+# basename — use Git path basename as target namespace (one namespace per discovered directory)
+# fixed — use applicationset_destination_namespace for every Application
+applicationset_destination_namespace_mode: basename
+applicationset_destination_namespace: ""
+
+# Directory source (per generated Application)
+applicationset_directory_recurse: true
+
+# Automatic | Manual (no automated block when Manual)
+applicationset_sync_policy: Automatic
+
+applicationset_sync_options:
+  - CreateNamespace=true
+  - SkipDryRunOnMissingResource=true
+  - ServerSideApply=true
+
+applicationset_sync_retry_limit: 5
+applicationset_sync_retry_backoff_duration: 30s
+applicationset_sync_retry_backoff_factor: 2
+applicationset_sync_retry_backoff_max_duration: 3m

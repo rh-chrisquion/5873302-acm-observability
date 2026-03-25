@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: {{ applicationset_name }}
+  namespace: {{ applicationset_namespace }}
+  labels:
+    app.kubernetes.io/instance: openshift-gitops
+spec:
+  goTemplate: true
+  generators:
+    - git:
+        repoURL: {{ gitops_repo_url | to_json }}
+        revision: {{ applicationset_repo_revision | to_json }}
+        directories:
+{% for d in applicationset_git_directories %}
+          - path: {{ d.path | to_json }}
+{% if d.exclude is defined %}
+            exclude: {{ d.exclude | bool }}
+{% endif %}
+{% endfor %}
+  template:
+    metadata:
+      name: '{% raw %}{{ .path.basenameNormalized }}{% endraw %}'
+      namespace: '{{ applicationset_namespace }}'
+    spec:
+      project: '{{ applicationset_project }}'
+      source:
+        repoURL: {{ gitops_repo_url | to_json }}
+        targetRevision: {{ applicationset_repo_revision | to_json }}
+        path: '{% raw %}{{ .path.path }}{% endraw %}'
+        directory:
+{% if applicationset_directory_recurse | bool %}
+          recurse: true
+{% else %}
+          recurse: false
+{% endif %}
+      destination:
+        server: '{{ applicationset_destination_server }}'
+{% if applicationset_destination_namespace_mode == "basename" %}
+        namespace: '{% raw %}{{ .path.basenameNormalized }}{% endraw %}'
+{% else %}
+        namespace: '{{ applicationset_destination_namespace }}'
+{% endif %}
+      syncPolicy:
+{% if applicationset_sync_policy == "Automatic" %}
+        automated:
+          prune: true
+          selfHeal: true
+{% endif %}
+        syncOptions:
+{% for opt in applicationset_sync_options %}
+          - {{ opt | to_json }}
+{% endfor %}
+        retry:
+          limit: {{ applicationset_sync_retry_limit | int }}
+          backoff:
+            duration: {{ applicationset_sync_retry_backoff_duration | to_json }}
+            factor: {{ applicationset_sync_retry_backoff_factor | int }}
+            maxDuration: {{ applicationset_sync_retry_backoff_max_duration | to_json }}

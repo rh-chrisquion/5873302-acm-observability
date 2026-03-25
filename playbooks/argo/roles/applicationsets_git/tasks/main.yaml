@@ -1,0 +1,24 @@
+---
+- name: Require at least one Git directory rule
+  ansible.builtin.assert:
+    that:
+      - applicationset_git_directories | length > 0
+    fail_msg: >-
+      Set applicationset_git_directories to a non-empty list (each item: path, e.g. { path: 'apps/*' }).
+      Override via inventory, group_vars, or -e.
+    quiet: true
+
+- name: Require destination namespace when using fixed mode
+  ansible.builtin.assert:
+    that:
+      - applicationset_destination_namespace | default('') | length > 0
+    fail_msg: >-
+      applicationset_destination_namespace_mode is 'fixed' but applicationset_destination_namespace is empty.
+      Set applicationset_destination_namespace or switch applicationset_destination_namespace_mode to 'basename'.
+    quiet: true
+  when: applicationset_destination_namespace_mode == "fixed"
+
+- name: Apply ApplicationSet (Git directory generator)
+  kubernetes.core.k8s:
+    state: present
+    template: applicationset-git.yaml.j2
