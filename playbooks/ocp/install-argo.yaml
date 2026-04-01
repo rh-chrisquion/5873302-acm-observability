@@ -4,9 +4,7 @@
   vars_files:
     - ../group_vars/all.yaml
   vars: 
-    ansible_python_interpreter: /Users/chrisquion/5873302-acm-observability/ansible-k8s-venv/.ansible-k8s/bin/python3
-  environment:
-    K8S_AUTH_API_KEY: "sha256~tQtt-KpnfH2V1t0ZayDZnmYZ6KkuswhGSoPhnnwj8Hc"
+    ansible_python_interpreter: "/your/path/to/venv/bin/python3"
   gather_facts: false
   roles:
     - install_openshift_gitops
